@@ -10,6 +10,7 @@ mod ws;
 type Result<T> = std::result::Result<T, Rejection>;
 type Clients = Arc<RwLock<HashMap<String, Client>>>;
 
+// Data Stored for a Single User
 #[derive(Debug, Clone)]
 pub struct Client {
     pub user_id: usize,
@@ -50,7 +51,12 @@ async fn main() {
         .or(register_routes)
         .or(ws_route)
         .or(publish)
-        .with(warp::cors().allow_any_origin());
+        .with(
+            warp::cors()
+                .allow_any_origin()
+                .allow_headers(vec!["Content-Type"])
+                .allow_methods(vec!["GET", "POST", "DELETE"]),
+        );
 
     warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
 }
