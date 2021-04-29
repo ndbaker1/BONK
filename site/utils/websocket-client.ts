@@ -4,40 +4,39 @@ import { environment } from '../environment'
 export class ClientConnection {
   private socket: W3CWebSocket | null = null
 
-  public connect(user_id: number): void {
-    // register on the endpoint and connect to websocket
-    fetch('http://' + environment.apiDomain + '/register', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        user_id
-      })
-    }).then(res => res.json())
-      .then((res) => {
-        this.socket && this.socket.close()
-        this.socket = new W3CWebSocket(res.url)
-        this.socket.onopen = this.initState
-        this.socket.onmessage = this.eventHandler
-      })
+  public connect(user_id: string): void {
+    this.socket && this.socket.close()
+    this.socket = new W3CWebSocket(`ws://${environment.apiDomain}/ws/${user_id}`)
+    this.socket.onopen = () => this.init_state()
+    this.socket.onmessage = this.event_handler
   }
 
+  public is_open(): boolean {
+    return this.socket?.readyState == this.socket?.OPEN
+  }
 
-  private initState() {
+  private init_state() {
     console.log('connected to websocket!')
-    this.sendUpdate(['update'])
+    this.send_update({ event_code: 1 })
   }
 
-  private eventHandler(event: IMessageEvent) {
+  private event_handler(event: IMessageEvent) {
     console.log('event:', event.data)
   }
 
+  private send_update(session_update: any) {
+    this.socket?.send(JSON.stringify(session_update))
+  }
 
-  public sendUpdate(topics: string[]): void {
-    if (this.socket) {
-      this.socket.send(JSON.stringify({ topics }))
-    }
+  public send_card(event_code: number): void {
+    this.socket?.send(JSON.stringify({
+      event_code,
+      target_ids: [],
+      card_id: 2,
+    }))
+  }
+
+  public create_session(): void {
+    this.socket?.send('create_session')
   }
 }

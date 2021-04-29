@@ -11,8 +11,14 @@ export default function Home(): JSX.Element {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <button onClick={() => {
-        client.connect(1)
+        client.connect('test_user')
       }}> Connect </button>
+      <button onClick={() => {
+        client.send_card(2)
+      }}> Card 2 </button>
+      <button onClick={() => {
+        client.create_session()
+      }}> Create Session </button>
     </div>
   )
 }
