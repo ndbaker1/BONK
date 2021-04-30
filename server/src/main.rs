@@ -5,6 +5,7 @@ use tokio::sync::{mpsc, RwLock};
 use warp::{ws::Message, Filter, Rejection};
 
 mod game_engine;
+mod game_events;
 mod handler;
 mod ws;
 
@@ -23,8 +24,7 @@ pub struct Client {
 // Data Stored for a Game Sessions
 #[derive(Debug, Clone)]
 pub struct Session {
-    pub session_id: usize,
-    pub name: String,
+    pub session_id: String,
     pub client_ids: HashSet<String>,
 }
 

@@ -1,6 +1,5 @@
-use crate::{game_engine, Client, Clients, Session, Sessions};
+use crate::{game_engine, Client, Clients, Sessions};
 use futures::{FutureExt, StreamExt};
-use std::collections::HashSet;
 use tokio::sync::mpsc;
 use warp::ws::{Message, WebSocket};
 
@@ -73,6 +72,7 @@ pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sess
     println!("{} disconnected", id);
 }
 
+/// Handles messages from a receiving websocket
 async fn handle_client_msg(id: &str, msg: Message, clients: &Clients, sessions: &Sessions) {
     println!("received message from {}: {:?}", id, msg);
     //======================================================
@@ -82,39 +82,19 @@ async fn handle_client_msg(id: &str, msg: Message, clients: &Clients, sessions: 
         Ok(v) => v,
         Err(_) => return,
     };
-    //======================================================
-    // ignore pings
-    //======================================================
+
     match message {
+        //======================================================
+        // ignore pings
+        //======================================================
         "ping" | "ping\n" => {
             println!("ignoring ping...");
-            return;
         }
-        "create_session" => {
-            let mut locked_sessions = sessions.write().await;
-            locked_sessions.insert(
-                String::from("Test"),
-                Session {
-                    client_ids: HashSet::new(),
-                    session_id: 3,
-                    name: String::from("Test"),
-                },
-            );
-            if let Some(sess) = locked_sessions.get_mut("Test") {
-                sess.client_ids.insert(String::from(id));
-            }
-        }
+        //======================================================
+        // Game Session Related Events
+        //======================================================
         _ => {
-            //======================================================
-            // Primary Logic For Handling Messages Follows
-            //======================================================
-            for session in sessions.read().await.values() {
-                if session.client_ids.contains(id) {
-                    println!("Theres one");
-                    game_engine::handle_event(id, message, clients, session).await;
-                }
-            }
+            game_engine::handle_event(id, message, clients, sessions).await;
         }
     }
-    println!("finished handling of message from {}", id);
 }

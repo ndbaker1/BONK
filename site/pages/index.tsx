@@ -10,12 +10,19 @@ export default function Home(): JSX.Element {
         <title>Create Next App</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
+
       <button onClick={() => {
         client.connect('test_user')
       }}> Connect </button>
+
       <button onClick={() => {
-        client.send_card(2)
+        client.play_card(2)
       }}> Card 2 </button>
+
+      <button onClick={() => {
+        client.leave_session()
+      }}>  Leave Sessions </button>
+
       <button onClick={() => {
         client.create_session()
       }}> Create Session </button>
