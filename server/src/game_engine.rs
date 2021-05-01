@@ -1,5 +1,5 @@
 use crate::{
-  game_events::{CardID, ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes},
+  event_types::{CardID, ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes},
   Client, Clients, Session, Sessions,
 };
 use nanoid::nanoid;
@@ -7,7 +7,7 @@ use serde_json::from_str;
 use std::collections::HashSet;
 use warp::ws::Message;
 
-/// Handle the events from a given sessions
+/// Handle the Client events from a given Session
 pub async fn handle_event(id: &str, event: &str, clients: &Clients, sessions: &Sessions) {
   //======================================================
   // Deserialize into Session Event object
@@ -136,9 +136,12 @@ async fn get_client_session_id(id: &str, sessions: &Sessions) -> Option<String> 
   None
 }
 
+/// Gets a random new session ID that is 5 characters long
+/// This should almost ensure session uniqueness when dealing with a sizeable number of sessions
 fn get_rand_session_id() -> String {
-  let alphabet: [char; 16] = [
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'a', 'b', 'c', 'd', 'e', 'f',
+  let alphabet: [char; 26] = [
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+    't', 'u', 'v', 'w', 'x', 'y', 'z',
   ];
   nanoid!(5, &alphabet)
 }

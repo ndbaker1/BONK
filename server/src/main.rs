@@ -4,8 +4,8 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use warp::{ws::Message, Filter, Rejection};
 
+mod event_types;
 mod game_engine;
-mod game_events;
 mod handler;
 mod ws;
 

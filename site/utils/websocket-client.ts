@@ -5,10 +5,13 @@ import { ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes } from './
 export class ClientConnection {
   private socket: W3CWebSocket | null = null
 
-  public connect(user_id: string): void {
+  public connect(user_id: string, callback: () => void): void {
     this.socket && this.socket.close()
     this.socket = new W3CWebSocket(`ws://${environment.apiDomain}/ws/${user_id}`)
-    this.socket.onopen = () => console.log('connected to websocket!')
+    this.socket.onopen = () => {
+      console.log('connected to websocket!')
+      callback()
+    }
     this.socket.onmessage = this.event_handler
     this.socket.onclose = () => console.log('socket close!')
     this.socket.onerror = () => console.log('socket error!')
