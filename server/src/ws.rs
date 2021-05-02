@@ -1,66 +1,95 @@
-use crate::{Client, Clients};
+use crate::{game_engine, Client, Clients, Sessions};
 use futures::{FutureExt, StreamExt};
-use serde::Deserialize;
-use serde_json::from_str;
 use tokio::sync::mpsc;
 use warp::ws::{Message, WebSocket};
 
-#[derive(Deserialize, Debug)]
-pub struct TopicsRequest {
-    topics: Vec<String>,
-}
-
-pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, mut client: Client) {
+/// The Initial Setup for a WebSocket Connection
+pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sessions: Sessions) {
+    //======================================================
+    // Splits the WebSocket into a Sink + Stream:
+    // Sink - Pools the messages to get send to the client
+    // Stream - receiver of messages from the client
+    //======================================================
     let (client_ws_sender, mut client_ws_rcv) = ws.split();
+    //======================================================
+    // Gets an Unbounced Channel that can transport messages
+    // between asynchronous tasks:
+    // Sender - front end of the channel
+    // Receiver - recieves the sender messages
+    //======================================================
     let (client_sender, client_rcv) = mpsc::unbounded_channel();
-
+    //======================================================
+    // Spawn a thread to forward messages
+    // from our channel into our WebSocket Sink
+    // between asynchronous tasks using the same Client object
+    //======================================================
     tokio::task::spawn(client_rcv.forward(client_ws_sender).map(|result| {
         if let Err(e) = result {
             eprintln!("error sending websocket msg: {}", e);
         }
     }));
+    //======================================================
+    // From now on we can use our client_sender.send(val: T)
+    // to send messages to a given client websocket
+    //======================================================
 
-    client.sender = Some(client_sender);
-    clients.write().await.insert(id.clone(), client);
-
+    //======================================================
+    // Create a new Client and insert them into the Map
+    //======================================================
+    clients.write().await.insert(
+        id.clone(),
+        Client {
+            user_id: id.clone(),
+            sender: Some(client_sender),
+        },
+    );
     println!("{} connected", id);
-
+    //======================================================
+    // Synchronously wait for messages from the
+    // Client Receiver Stream until an error occurs
+    //======================================================
     while let Some(result) = client_ws_rcv.next().await {
-        let msg = match result {
-            Ok(msg) => msg,
+        // Check that there was no error actually obtaining the Message
+        match result {
+            Ok(msg) => {
+                handle_client_msg(&id, msg, &clients, &sessions).await;
+            }
             Err(e) => {
                 eprintln!("error receiving ws message for id: {}): {}", id.clone(), e);
-                break;
             }
-        };
-        client_msg(&id, msg, &clients).await;
+        }
     }
-
+    //======================================================
+    // Remove the Client from the Map
+    // when they are finished using the socket (or error)
+    //======================================================
     clients.write().await.remove(&id);
     println!("{} disconnected", id);
 }
 
-async fn client_msg(id: &str, msg: Message, clients: &Clients) {
+/// Handles messages from a receiving websocket
+async fn handle_client_msg(id: &str, msg: Message, clients: &Clients, sessions: &Sessions) {
     println!("received message from {}: {:?}", id, msg);
+    //======================================================
+    // Ensure the Message Parses to String
+    //======================================================
     let message = match msg.to_str() {
         Ok(v) => v,
         Err(_) => return,
     };
 
-    if message == "ping" || message == "ping\n" {
-        return;
-    }
-
-    let topics_req: TopicsRequest = match from_str(&message) {
-        Ok(v) => v,
-        Err(e) => {
-            eprintln!("error while parsing message to topics request: {}", e);
-            return;
+    match message {
+        //======================================================
+        // ignore pings
+        //======================================================
+        "ping" | "ping\n" => {
+            println!("ignoring ping...");
         }
-    };
-
-    let mut locked = clients.write().await;
-    if let Some(v) = locked.get_mut(id) {
-        v.topics = topics_req.topics;
+        //======================================================
+        // Game Session Related Events
+        //======================================================
+        _ => {
+            game_engine::handle_event(id, message, clients, sessions).await;
+        }
     }
 }
