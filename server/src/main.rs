@@ -81,5 +81,6 @@ async fn main() {
             .allow_methods(vec!["GET", "POST", "DELETE"]),
     );
 
-    warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
+    println!("Starting server...");
+    warp::serve(routes).run(([0, 0, 0, 0], 8000)).await;
 }
