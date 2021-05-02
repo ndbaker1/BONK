@@ -1,3 +1,3 @@
 export const environment = {
-  apiDomain: process.env.API_DOMAIN || 'localhost:8000'
+  apiDomain: process.env.NEXT_PUBLIC_API_DOMAIN || 'localhost:8000'
 }
