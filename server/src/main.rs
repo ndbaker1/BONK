@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use warp::{ws::Message, Filter, Rejection};
@@ -81,6 +82,11 @@ async fn main() {
             .allow_methods(vec!["GET", "POST", "DELETE"]),
     );
 
-    println!("Starting server...");
-    warp::serve(routes).run(([0, 0, 0, 0], 8000)).await;
+    let port: u16 = env::var("PORT")
+        .unwrap_or_else(|_| String::from("8000"))
+        .parse()
+        .expect("PORT must be a number");
+
+    println!("Server start...");
+    warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
