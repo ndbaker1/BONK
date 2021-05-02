@@ -1,1 +1,1 @@
-web: ./server/target/debug/server
+web: ./target/release/server
