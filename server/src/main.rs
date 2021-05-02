@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::convert::Infallible;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use warp::{ws::Message, Filter, Rejection};
@@ -10,8 +9,9 @@ mod handler;
 mod ws;
 
 type Result<T> = std::result::Result<T, Rejection>;
-type Clients = Arc<RwLock<HashMap<String, Client>>>;
-type Sessions = Arc<RwLock<HashMap<String, Session>>>;
+type SafeResource<T> = Arc<RwLock<T>>;
+type Clients = SafeResource<HashMap<String, Client>>;
+type Sessions = SafeResource<HashMap<String, Session>>;
 
 // Data Stored for a Single User
 #[derive(Debug, Clone)]
@@ -26,7 +26,38 @@ pub struct Client {
 pub struct Session {
     pub session_id: String,
     pub client_ids: HashSet<String>,
+    pub game_state: Option<GameState>,
 }
+
+#[derive(Debug, Clone)]
+pub struct GameState {
+    pub turn_index: usize,
+    pub turn_orders: Vec<PlayerInfo>,
+    pub player_blue_cards: HashMap<String, HashSet<BlueCards>>,
+    pub player_green_cards: HashMap<String, HashSet<GreenCards>>,
+    pub effect: EffectCodes,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlayerInfo {
+    pub client_id: String,
+    pub character: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum EffectCodes {
+    GeneralStore = 1,
+    None,
+}
+
+#[derive(Debug, Clone)]
+pub enum BlueCards {
+    Barrel = 1,
+    Dynamite,
+}
+
+#[derive(Debug, Clone)]
+pub enum GreenCards {}
 
 #[tokio::main]
 async fn main() {
@@ -38,8 +69,9 @@ async fn main() {
     let ws_route = warp::path("ws")
         .and(warp::ws())
         .and(warp::path::param())
-        .and(with_clients(clients.clone()))
-        .and(with_sessions(sessions.clone()))
+        // Closures which pass the client and sessions maps to our handler
+        .and(warp::any().map(move || clients.clone()))
+        .and(warp::any().map(move || sessions.clone()))
         .and_then(handler::ws_handler);
 
     let routes = health_route.or(ws_route).with(
@@ -50,14 +82,4 @@ async fn main() {
     );
 
     warp::serve(routes).run(([127, 0, 0, 1], 8000)).await;
-}
-
-fn with_clients(clients: Clients) -> impl Filter<Extract = (Clients,), Error = Infallible> + Clone {
-    warp::any().map(move || clients.clone())
-}
-
-fn with_sessions(
-    sessions: Sessions,
-) -> impl Filter<Extract = (Sessions,), Error = Infallible> + Clone {
-    warp::any().map(move || sessions.clone())
 }

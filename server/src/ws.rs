@@ -6,15 +6,14 @@ use warp::ws::{Message, WebSocket};
 /// The Initial Setup for a WebSocket Connection
 pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sessions: Sessions) {
     //======================================================
-    // Complicated WebSocket Portion
-    //======================================================
     // Splits the WebSocket into a Sink + Stream:
     // Sink - Pools the messages to get send to the client
     // Stream - receiver of messages from the client
     //======================================================
     let (client_ws_sender, mut client_ws_rcv) = ws.split();
     //======================================================
-    // Gets an Unbounced Channel that can transport messages:
+    // Gets an Unbounced Channel that can transport messages
+    // between asynchronous tasks:
     // Sender - front end of the channel
     // Receiver - recieves the sender messages
     //======================================================
@@ -22,6 +21,7 @@ pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sess
     //======================================================
     // Spawn a thread to forward messages
     // from our channel into our WebSocket Sink
+    // between asynchronous tasks using the same Client object
     //======================================================
     tokio::task::spawn(client_rcv.forward(client_ws_sender).map(|result| {
         if let Err(e) = result {
@@ -49,20 +49,15 @@ pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sess
     // Client Receiver Stream until an error occurs
     //======================================================
     while let Some(result) = client_ws_rcv.next().await {
-        handle_client_msg(
-            &id,
-            // Check that there was no error actually obtaining the Message
-            match result {
-                Ok(msg) => msg,
-                Err(e) => {
-                    eprintln!("error receiving ws message for id: {}): {}", id.clone(), e);
-                    break;
-                }
-            },
-            &clients,
-            &sessions,
-        )
-        .await;
+        // Check that there was no error actually obtaining the Message
+        match result {
+            Ok(msg) => {
+                handle_client_msg(&id, msg, &clients, &sessions).await;
+            }
+            Err(e) => {
+                eprintln!("error receiving ws message for id: {}): {}", id.clone(), e);
+            }
+        }
     }
     //======================================================
     // Remove the Client from the Map
