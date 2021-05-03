@@ -35,6 +35,10 @@ export class ClientConnection {
     }
   }
 
+  public disconnect(): void {
+    this.socket?.close()
+  }
+
   //=====================================
   // Receives Messages from the Server
   //=====================================
