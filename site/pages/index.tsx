@@ -52,26 +52,31 @@ export default function Home(): JSX.Element {
         <div style={{ display: 'flex', flexDirection: 'column', margin: 'auto' }}>
           <input value={user} onChange={(event) => setUser(event.target.value.toString())}></input>
           <button onClick={() => {
-            clientRef.current.connect(user, () => setNotification({ open: true, text: 'Connected!' }))
+            clientRef.current.connect(user, {
+              open: () => setNotification({ open: true, text: 'Connected!' }),
+              error: () => setNotification({ open: true, text: 'Error: ID may already be taken.' })
+            })
           }}> Connect </button>
 
-          <button onClick={() => {
-            clientRef.current.play_card(2)
-          }}> Card 2 </button>
+          <div style={{ display: clientRef.current.isOpen() ? 'flex' : 'none', flexDirection: 'column', margin: 'auto' }}>
+            <button onClick={() => {
+              clientRef.current.play_card(2)
+            }}> Card 2 </button>
 
-          <p>{session}</p>
-          <button onClick={() => {
-            clientRef.current.leave_session()
-          }}>  Leave Sessions </button>
+            <p>{session}</p>
+            <button onClick={() => {
+              clientRef.current.leave_session()
+            }}>  Leave Sessions </button>
 
-          <input value={sessionId} onChange={(event) => setSessionId(event.target.value)}></input>
-          <button onClick={() => {
-            clientRef.current.join_session(sessionId)
-          }}>  Join Session </button>
+            <input value={sessionId} onChange={(event) => setSessionId(event.target.value)}></input>
+            <button onClick={() => {
+              clientRef.current.join_session(sessionId)
+            }}>  Join Session </button>
 
-          <button onClick={() => {
-            clientRef.current.create_session()
-          }}> Create Session </button>
+            <button onClick={() => {
+              clientRef.current.create_session()
+            }}> Create Session </button>
+          </div>
         </div>
 
         <Snackbar

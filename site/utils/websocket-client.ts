@@ -11,17 +11,20 @@ export class ClientConnection {
     this.eventHandler = this.create_event_handler(callbacks)
   }
 
-  public connect(user_id: string, callback: () => void): void {
+  public connect(user_id: string, callbacks: Record<'open' | 'error', () => void>): void {
     const setupConnection = () => {
       this.socket = new W3CWebSocket(`${environment.wsProtocol}://${environment.apiDomain}/ws/${user_id}`)
       this.socket.onopen = () => {
         console.log('connected to websocket!', this.socket)
-        callback()
+        callbacks.open()
       }
       this.socket.onmessage = this.eventHandler
-      this.socket.onerror = () => console.log('socket error!')
+      this.socket.onerror = (err) => {
+        console.log('socket error!', err)
+        callbacks.error()
+      }
     }
-    if (this.socket) {
+    if (this.socket && this.socket.readyState != this.socket.CLOSED) {
       this.socket.onclose = () => {
         console.log('closed and reconnecting')
         setupConnection()
@@ -64,8 +67,8 @@ export class ClientConnection {
   //=====================
   // Public Methods
   //=====================
-  public is_open(): boolean {
-    return this.socket?.readyState == this.socket?.OPEN
+  public isOpen(): boolean {
+    return !!this.socket && this.socket.readyState == this.socket.OPEN
   }
 
   public play_card(card_id: number): void {
