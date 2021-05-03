@@ -2,7 +2,6 @@ import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
 import { ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes } from './event-types'
 
-
 export class ClientConnection {
   private socket: W3CWebSocket | null = null
   private eventHandler: (event: IMessageEvent) => void
@@ -13,7 +12,7 @@ export class ClientConnection {
 
   public connect(user_id: string, callbacks: Record<'open' | 'error', () => void>): void {
     const setupConnection = () => {
-      this.socket = new W3CWebSocket(`${environment.wsProtocol}://${environment.apiDomain}/ws/${user_id}`)
+      this.socket = new W3CWebSocket(`${environment.ws_or_wss}://${environment.apiDomain}/ws/${user_id}`)
       this.socket.onopen = () => {
         console.log('connected to websocket!', this.socket)
         callbacks.open()
