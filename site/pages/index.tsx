@@ -5,11 +5,12 @@ import { Button, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
 import { ServerEvent, ServerEventCodes } from 'utils/event-types'
 import { environment } from 'environment'
 
+// wake up app using the health endpoint
+if (environment.healthCheck) {
+  fetch(`${environment.http_or_https}://${environment.apiDomain}/health`).then(() => console.log('health check passed'))
+}
+
 export default function Home(): JSX.Element {
-  // wake up app using the health endpoint
-  if (environment.healthCheck) {
-    fetch(`${environment.http_or_https}://${environment.apiDomain}/health`).then(() => console.log('health check passed'))
-  }
   // Make sure to utilize <useRef()> because the object will be stale in closures
   const clientRef = useRef<ClientConnection>(
     new ClientConnection({
