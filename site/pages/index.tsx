@@ -44,7 +44,7 @@ export default function Home(): JSX.Element {
   return (
     <div style={{ width: '100vw', height: '100vh', backgroundImage: 'linear-gradient(30deg, #16222A, #3A6073)' }}>
       <Head>
-        <title>Create Next App</title>
+        <title>BONK</title>
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div style={{ display: 'flex', flexDirection: 'column', margin: 'auto', width: '100%', height: '100%' }}>
