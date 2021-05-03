@@ -1,7 +1,7 @@
 import Head from 'next/head'
 import { useEffect, useRef, useState } from 'react'
 import { ClientConnection } from '../utils/websocket-client'
-import { Button, Input, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
+import { Button, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
 import { ServerEvent, ServerEventCodes } from 'utils/event-types'
 
 export default function Home(): JSX.Element {
