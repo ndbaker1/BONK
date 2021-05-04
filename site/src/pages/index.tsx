@@ -1,19 +1,13 @@
-import Head from 'next/head'
-import { useEffect, useRef, useState } from 'react'
+import React from 'react'
+import { Helmet } from 'react-helmet'
 import { ClientConnection } from '../utils/websocket-client'
 import { Button, IconButton, InputAdornment, List, ListItem, ListItemText, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
-import { ServerEvent, ServerEventCodes } from 'utils/event-types'
-import { environment } from 'environment'
+import { ServerEvent, ServerEventCodes } from '../utils/event-types'
 import { FileCopyOutlined } from '@material-ui/icons'
-
-// wake up app using the health endpoint
-if (environment.healthCheck) {
-  fetch(`${environment.http_or_https}://${environment.apiDomain}/health`).then(() => console.log('health check passed'))
-}
 
 export default function Home(): JSX.Element {
   // Make sure to utilize <useRef()> because the object will be stale in closures
-  const clientRef = useRef<ClientConnection>(
+  const clientRef = React.useRef<ClientConnection>(
     new ClientConnection({
       [ServerEventCodes.ClientJoined]: (response: ServerEvent) => {
         console.log(response)
@@ -53,22 +47,23 @@ export default function Home(): JSX.Element {
     })
   )
 
-  const [activeSession, setActiveSession] = useState('')
+  const [activeSession, setActiveSession] = React.useState('')
 
-  const [user, setUser] = useState('test_user')
-  const userRef = useRef(user)
-  useEffect(() => { userRef.current = user }, [user])
+  const [user, setUser] = React.useState('test_user')
+  const userRef = React.useRef(user)
+  React.useEffect(() => { userRef.current = user }, [user])
 
-  const [inputSession, setInputSession] = useState('')
-  const [notification, setNotification] = useState({ open: false, text: ' ' })
-  const [users, setUsers] = useState<string[]>([])
+  const [inputSession, setInputSession] = React.useState('')
+  const [notification, setNotification] = React.useState({ open: false, text: ' ' })
+  const [users, setUsers] = React.useState<string[]>([])
 
   return (
     <div style={{ width: '100vw', height: '100vh', backgroundImage: 'linear-gradient(30deg, #16222A, #3A6073)' }}>
-      <Head>
+      <Helmet>
+        <meta charSet="utf-8" />
         <title>BONK</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+        <link rel="icon" href="./favicon.ico" />
+      </Helmet>
       <div style={{ display: 'flex', flexDirection: 'column', margin: 'auto', width: '100%', height: '100%' }}>
 
         <Paper elevation={7} style={{ display: 'flex', flexDirection: 'column', margin: 'auto', padding: '2rem' }}>
@@ -142,7 +137,7 @@ export default function Home(): JSX.Element {
           autoHideDuration={2000}
         />
       </div>
-    </div >
+    </div>
   )
 }
 

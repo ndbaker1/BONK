@@ -3,16 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "gatsby build",
+    "start": "gatsby develop -p 3000"
   },
   "dependencies": {
     "@material-ui/core": "^4.11.4",
     "@material-ui/icons": "^4.11.2",
-    "next": "10.1.3",
+    "gatsby": "^3.4.1",
+    "gatsby-plugin-material-ui": "^3.0.1",
+    "gatsby-plugin-sass": "^4.4.0",
+    "gatsby-theme-material-ui": "^2.0.1",
     "react": "17.0.2",
     "react-dom": "17.0.2",
+    "sass": "^1.32.12",
     "websocket": "^1.0.34"
   },
   "devDependencies": {

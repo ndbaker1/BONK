@@ -1,7 +1,6 @@
+import React from 'react'
+import { ThemeProvider } from '@material-ui/core/styles'
 import { createMuiTheme } from '@material-ui/core'
-import { ThemeProvider } from '@material-ui/styles'
-import { AppProps } from 'next/app'
-import '../styles/globals.css'
 
 const theme = createMuiTheme({
   palette: {
@@ -14,12 +13,10 @@ const theme = createMuiTheme({
   },
 })
 
-function MyApp({ Component, pageProps }: AppProps): JSX.Element {
+export default function ThemeWrapper({ element }: { element: JSX.Element }): JSX.Element {
   return (
     <ThemeProvider theme={theme}>
-      <Component {...pageProps} />
+      {element}
     </ThemeProvider>
   )
 }
-
-export default MyApp
