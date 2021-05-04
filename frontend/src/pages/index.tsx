@@ -4,8 +4,15 @@ import { ClientConnection } from '../utils/websocket-client'
 import { Button, IconButton, InputAdornment, List, ListItem, ListItemText, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
 import { ServerEvent, ServerEventCodes } from '../utils/event-types'
 import { FileCopyOutlined } from '@material-ui/icons'
+import { environment } from '../environment'
 
 export default function Home(): JSX.Element {
+  // run once on init
+  React.useEffect(() => {
+    if (environment.healthCheck) // wake up app using the health endpoint
+      fetch(`${environment.http_or_https}://${environment.apiDomain}/health`).then(() => console.log('health check passed'))
+  }, [])
+
   // Make sure to utilize <useRef()> because the object will be stale in closures
   const clientRef = React.useRef<ClientConnection>(
     new ClientConnection({

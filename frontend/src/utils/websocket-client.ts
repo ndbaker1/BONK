@@ -8,10 +8,6 @@ export class ClientConnection {
 
   constructor(callbacks: Record<ServerEventCodes, (response: ServerEvent) => void>) {
     this.eventHandler = this.create_event_handler(callbacks)
-    // wake up app using the health endpoint
-    // if (environment.healthCheck) {
-    //   fetch(`${environment.http_or_https}://${environment.apiDomain}/health`).then(() => console.log('health check passed'))
-    // }
   }
 
   public connect(user_id: string, callbacks: Record<'open' | 'error', () => void>): void {
