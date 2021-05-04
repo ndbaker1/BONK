@@ -97,3 +97,12 @@ export class ClientConnection {
       this.socket.send(JSON.stringify(session_update))
   }
 }
+
+export function verifySessionID(sessionID: string): string {
+  const sessionIDLength = 5
+  const errors: string[] = []
+  if (sessionID.length !== sessionIDLength) {
+    errors.push(`SessionID needs to be ${sessionIDLength} characters`)
+  }
+  return errors.join('')
+}

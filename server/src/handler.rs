@@ -1,4 +1,4 @@
-use crate::{ws, Clients, Result, Sessions};
+use crate::{ws, Result, SafeClients, SafeSessions};
 use warp::{http::StatusCode, Reply};
 
 /// An Rejection Class for new clients trying to use currently online ID's
@@ -11,8 +11,8 @@ impl warp::reject::Reject for IDAlreadyTaken {}
 pub async fn ws_handler(
     ws: warp::ws::Ws,
     id: String,
-    clients: Clients,
-    sessions: Sessions,
+    clients: SafeClients,
+    sessions: SafeSessions,
 ) -> Result<impl Reply> {
     let client = clients.read().await.get(&id).cloned();
     match client {

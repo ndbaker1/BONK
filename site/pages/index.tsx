@@ -1,6 +1,6 @@
 import Head from 'next/head'
 import { useEffect, useRef, useState } from 'react'
-import { ClientConnection } from '../utils/websocket-client'
+import { ClientConnection, verifySessionID } from '../utils/websocket-client'
 import { Button, List, ListItem, ListItemText, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
 import { ServerEvent, ServerEventCodes } from 'utils/event-types'
 import { environment } from 'environment'
@@ -40,7 +40,11 @@ export default function Home(): JSX.Element {
       [ServerEventCodes.DataResponse]: (response: ServerEvent) => {
         setActiveSession(response.session_id || '')
         setUsers(response.session_client_ids || [])
-      }
+        setNotification({ open: true, text: 'Resumed Previous Session!' })
+      },
+      [ServerEventCodes.InvalidSessionID]: (response: ServerEvent) => {
+        setNotification({ open: true, text: response.session_id + ' is not a valid Session ID' })
+      },
     })
   )
 
@@ -68,6 +72,7 @@ export default function Home(): JSX.Element {
 
             <TextField label="UserID" variant="outlined" value={user} onChange={(event) => setUser(event.target.value)} />
             <Button onClick={() => {
+              setNotification({ open: true, text: 'Connecting...' })
               clientRef.current.connect(user, {
                 open: () => {
                   clientRef.current.getState()
@@ -96,7 +101,9 @@ export default function Home(): JSX.Element {
                     <>
                       < TextField label="Session ID" variant="outlined" value={inputSession} onChange={(event) => setInputSession(event.target.value)} />
                       <Button onClick={() => {
-                        clientRef.current.join_session(inputSession)
+                        const error = verifySessionID(inputSession)
+                        if (error) setNotification({ open: true, text: error })
+                        else clientRef.current.join_session(inputSession)
                       }}>  Join Session </Button>
 
                       <Button onClick={() => {

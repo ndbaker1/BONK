@@ -1,10 +1,15 @@
-use crate::{game_engine, Client, Clients, Sessions};
+use crate::{game_engine, Client, SafeClients, SafeSessions};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use warp::ws::{Message, WebSocket};
 
 /// The Initial Setup for a WebSocket Connection
-pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sessions: Sessions) {
+pub async fn client_connection(
+    ws: WebSocket,
+    id: String,
+    clients: SafeClients,
+    sessions: SafeSessions,
+) {
     //======================================================
     // Splits the WebSocket into a Sink + Stream:
     // Sink - Pools the messages to get send to the client
@@ -41,6 +46,7 @@ pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sess
         Client {
             user_id: id.clone(),
             sender: Some(client_sender),
+            session_id: None,
         },
     );
     println!("{} connected", id);
@@ -68,7 +74,7 @@ pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sess
 }
 
 /// Handles messages from a receiving websocket
-async fn handle_client_msg(id: &str, msg: Message, clients: &Clients, sessions: &Sessions) {
+async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessions: &SafeSessions) {
     println!("received message from {}: {:?}", id, msg);
     //======================================================
     // Ensure the Message Parses to String

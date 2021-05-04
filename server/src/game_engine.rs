@@ -1,14 +1,16 @@
 use crate::{
   event_types::{CardID, ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes},
-  Client, Clients, EffectCodes, GameState, PlayerInfo, Session, Sessions,
+  Client, Clients, EffectCodes, GameState, PlayerInfo, SafeClients, SafeSessions, Session,
+  Sessions,
 };
 use nanoid::nanoid;
 use serde_json::from_str;
 use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
 use warp::ws::Message;
 
 /// Handle the Client events from a given Session
-pub async fn handle_event(id: &str, event: &str, clients: &Clients, sessions: &Sessions) {
+pub async fn handle_event(id: &str, event: &str, clients: &SafeClients, sessions: &SafeSessions) {
   //======================================================
   // Deserialize into Session Event object
   //======================================================
@@ -22,10 +24,11 @@ pub async fn handle_event(id: &str, event: &str, clients: &Clients, sessions: &S
 
   match client_event.event_code {
     ClientEventCodes::DataRequest => {
-      println!("DATA REQUEST");
-      if let Some(session_id) = get_client_session_id(id, sessions).await {
+      let r_session = sessions.read().await;
+      let session_id_option = get_client_session_id(id, &r_session);
+      drop(r_session);
+      if let Some(session_id) = session_id_option {
         if let Some(session) = sessions.write().await.get_mut(&session_id) {
-          println!("DATA SESSIONS");
           if let Some(client) = clients.read().await.get(id) {
             println!("relaying state data for client: {}", id);
             notify_client(
@@ -42,30 +45,18 @@ pub async fn handle_event(id: &str, event: &str, clients: &Clients, sessions: &S
       }
     }
     ClientEventCodes::CreateSession => {
-      let mut new_client_ids = HashSet::new();
-      new_client_ids.insert(String::from(id));
-      let session = Session {
-        client_ids: new_client_ids,
+      let session = &mut Session {
+        client_ids: HashSet::from_iter([id.to_string()].iter().cloned()),
         session_id: get_rand_session_id(),
         game_state: None,
       };
 
-      if let Some(client) = clients.read().await.get(id) {
-        notify_client(
-          &ServerEvent {
-            event_code: ServerEventCodes::ClientJoined,
-            session_id: Some(session.session_id.clone()),
-            client_id: Some(String::from(id)),
-            session_client_ids: Some(session.client_ids.clone().into_iter().collect()),
-          },
-          client,
-        );
-      }
+      insert_client_into_given_session(id, clients, session).await;
 
       sessions
         .write()
         .await
-        .insert(session.session_id.clone(), session);
+        .insert(session.session_id.clone(), session.clone());
 
       println!(
         "created session.\n\tsession count: {}",
@@ -75,64 +66,33 @@ pub async fn handle_event(id: &str, event: &str, clients: &Clients, sessions: &S
     ClientEventCodes::JoinSession => {
       // identify session_id to join
       if let Some(session_id) = client_event.session_id {
+        remove_client_from_current_session(id, clients, sessions).await;
         if let Some(session) = sessions.write().await.get_mut(&session_id) {
-          // add the client to the session
-          session.client_ids.insert(String::from(id));
-          // notify all clients in the session that the client has joined
-          notify_all_clients(
-            &ServerEvent {
-              event_code: ServerEventCodes::ClientJoined,
-              session_id: Some(session_id),
-              client_id: Some(String::from(id)),
-              session_client_ids: Some(session.client_ids.clone().into_iter().collect()),
-            },
-            &session,
-            clients,
-          )
-          .await;
+          insert_client_into_given_session(id, clients, session).await;
         } else {
-          eprintln!("could not get session_id for id: {}", id);
+          eprintln!("could not get session_id for client: {}", id);
+          if let Some(client) = clients.read().await.get(id) {
+            notify_client(
+              &ServerEvent {
+                event_code: ServerEventCodes::InvalidSessionID,
+                session_id: Some(session_id),
+                client_id: Some(id.to_string()),
+                session_client_ids: None,
+              },
+              &client,
+            );
+          }
         }
       }
     }
     ClientEventCodes::LeaveSession => {
-      if let Some(session_id) = get_client_session_id(id, sessions).await {
-        let mut session_empty: bool = false;
-        if let Some(session) = sessions.write().await.get_mut(&session_id) {
-          // notify all clients in the sessions that the client will be leacing
-          notify_all_clients(
-            &ServerEvent {
-              event_code: ServerEventCodes::ClientLeft,
-              session_id: None,
-              client_id: Some(String::from(id)),
-              session_client_ids: None,
-            },
-            &session,
-            clients,
-          )
-          .await;
-          // remove the client from the session
-          session.client_ids.remove(&String::from(id));
-          println!(
-            "clients in this session after {} left: {}",
-            id,
-            session.client_ids.len()
-          );
-          session_empty = session.client_ids.is_empty();
-        }
-        // clean up the session from the map if it is empty
-        // * we cannot do this in the scope above because because we are already holding a mutable reference to a session within the map
-        if session_empty {
-          sessions.write().await.remove(&session_id);
-          println!(
-            "removed empty session.\n\tremaining session count: {}",
-            sessions.read().await.len()
-          );
-        }
-      }
+      remove_client_from_current_session(id, clients, sessions).await;
     }
     ClientEventCodes::StartGame => {
-      if let Some(session_id) = get_client_session_id(id, sessions).await {
+      let r_session = sessions.read().await;
+      let session_id_option = get_client_session_id(id, &r_session);
+      drop(r_session);
+      if let Some(session_id) = session_id_option {
         if let Some(session) = sessions.write().await.get_mut(&session_id) {
           // assign roles to players
           let turn_orders: Vec<PlayerInfo> = session
@@ -141,7 +101,7 @@ pub async fn handle_event(id: &str, event: &str, clients: &Clients, sessions: &S
             .into_iter()
             .map(|client_id| PlayerInfo {
               client_id: client_id,
-              character: String::from("Sheriff"),
+              character: "Sheriff".to_string(),
             })
             .collect();
 
@@ -153,6 +113,7 @@ pub async fn handle_event(id: &str, event: &str, clients: &Clients, sessions: &S
             effect: EffectCodes::None,
           });
 
+          let r_clients = clients.read().await;
           notify_all_clients(
             &ServerEvent {
               event_code: ServerEventCodes::GameStarted,
@@ -161,36 +122,37 @@ pub async fn handle_event(id: &str, event: &str, clients: &Clients, sessions: &S
               session_client_ids: None,
             },
             &session,
-            clients,
-          )
-          .await;
+            &r_clients,
+          );
+          drop(r_clients);
         }
       }
     }
     ClientEventCodes::EndTurn => {
-      if let Some(session_id) = get_client_session_id(id, sessions).await {
-        if let Some(session) = sessions.write().await.get_mut(&session_id) {
-          if let Some(game_state) = session.game_state.as_mut() {
-            game_state.turn_index += 1;
-
-            notify_all_clients(
-              &ServerEvent {
-                event_code: ServerEventCodes::TurnStart,
-                session_id: None,
-                client_id: Some(
-                  game_state.turn_orders[game_state.turn_index]
-                    .client_id
-                    .clone(),
-                ),
-                session_client_ids: None,
-              },
-              &session,
-              clients,
-            )
-            .await;
-          }
-        }
-      }
+      // if let r_session = sessions.read().await {
+      //   if let Some(session_id) = get_client_session_id(id, &r_session) {
+      //     if let Some(session) = sessions.write().await.get_mut(&session_id) {
+      //       if let Some(game_state) = session.game_state.as_mut() {
+      //         game_state.turn_index += 1;
+      //         notify_all_clients(
+      //           &ServerEvent {
+      //             event_code: ServerEventCodes::TurnStart,
+      //             session_id: None,
+      //             client_id: Some(
+      //               game_state.turn_orders[game_state.turn_index]
+      //                 .client_id
+      //                 .clone(),
+      //             ),
+      //             session_client_ids: None,
+      //           },
+      //           &session,
+      //           clients,
+      //         )
+      //         .await;
+      //       }
+      //     }
+      //   }
+      // }
     }
     ClientEventCodes::PlayCard => {
       if let Some(card_id) = client_event.card_id {
@@ -213,9 +175,9 @@ fn card_has_targets(card_id: CardID) -> bool {
 }
 
 /// Send an update to all clients in the session
-async fn notify_all_clients(game_update: &ServerEvent, session: &Session, clients: &Clients) {
+fn notify_all_clients(game_update: &ServerEvent, session: &Session, clients: &Clients) {
   for client_id in &session.client_ids {
-    if let Some(client) = clients.read().await.get(client_id) {
+    if let Some(client) = clients.get(client_id) {
       notify_client(game_update, client);
     }
   }
@@ -232,8 +194,8 @@ fn notify_client(game_update: &ServerEvent, client: &Client) {
   }
 }
 
-async fn get_client_session_id(id: &str, sessions: &Sessions) -> Option<String> {
-  for session in sessions.read().await.values() {
+fn get_client_session_id(id: &str, sessions: &Sessions) -> Option<String> {
+  for session in sessions.values() {
     if session.client_ids.contains(id) {
       return Some(session.session_id.clone());
     }
@@ -241,12 +203,79 @@ async fn get_client_session_id(id: &str, sessions: &Sessions) -> Option<String> 
   None
 }
 
+/// Removes a client from the session that they currently exist under
+async fn remove_client_from_current_session(
+  client_id: &str,
+  clients: &SafeClients,
+  sessions: &SafeSessions,
+) {
+  let r_session = sessions.read().await;
+  let session_id_option = get_client_session_id(client_id, &r_session);
+  drop(r_session);
+  if let Some(session_id) = session_id_option {
+    let mut session_empty: bool = false;
+    if let Some(session) = sessions.write().await.get_mut(&session_id) {
+      // notify all clients in the sessions that the client will be leacing
+      let r_clients = clients.read().await;
+      notify_all_clients(
+        &ServerEvent {
+          event_code: ServerEventCodes::ClientLeft,
+          session_id: None,
+          client_id: Some(client_id.to_string()),
+          session_client_ids: None,
+        },
+        &session,
+        &r_clients,
+      );
+      drop(r_clients);
+      // remove the client from the session
+      session.client_ids.remove(&client_id.to_string());
+      println!(
+        "clients in this session after {} left: {}",
+        client_id,
+        session.client_ids.len()
+      );
+      session_empty = session.client_ids.is_empty();
+    }
+    // clean up the session from the map if it is empty
+    // * we cannot do this in the scope above because because we are already holding a mutable reference to a session within the map
+    if session_empty {
+      sessions.write().await.remove(&session_id);
+      println!(
+        "removed empty session.\n\tremaining session count: {}",
+        sessions.read().await.len()
+      );
+    }
+  }
+}
+
+/// Takes a mutable session reference in order to add a client to a given session
+async fn insert_client_into_given_session(
+  client_id: &str,
+  clients: &SafeClients,
+  session: &mut Session,
+) {
+  session.client_ids.insert(client_id.to_string());
+  // notify all clients in the session that the client has joined
+  let r_clients = clients.read().await;
+  notify_all_clients(
+    &ServerEvent {
+      event_code: ServerEventCodes::ClientJoined,
+      session_id: Some(session.session_id.clone()),
+      client_id: Some(client_id.to_string()),
+      session_client_ids: Some(session.client_ids.clone().into_iter().collect()),
+    },
+    &session,
+    &r_clients,
+  );
+}
+
 /// Gets a random new session ID that is 5 characters long
 /// This should almost ensure session uniqueness when dealing with a sizeable number of sessions
 fn get_rand_session_id() -> String {
   let alphabet: [char; 26] = [
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
-    't', 'u', 'v', 'w', 'x', 'y', 'z',
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S',
+    'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
   ];
   nanoid!(5, &alphabet)
 }

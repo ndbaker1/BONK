@@ -19,6 +19,7 @@ pub enum ServerEventCodes {
   GameStarted,
   TurnStart,
   DataResponse,
+  InvalidSessionID,
 }
 
 #[derive(Deserialize)]

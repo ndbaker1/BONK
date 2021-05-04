@@ -14,6 +14,7 @@ export enum ServerEventCodes {
   GameStarted,
   TurnStart,
   DataResponse,
+  InvalidSessionID,
 }
 
 export type ClientEvent = {

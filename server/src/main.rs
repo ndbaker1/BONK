@@ -11,14 +11,18 @@ mod ws;
 
 type Result<T> = std::result::Result<T, Rejection>;
 type SafeResource<T> = Arc<RwLock<T>>;
-type Clients = SafeResource<HashMap<String, Client>>;
-type Sessions = SafeResource<HashMap<String, Session>>;
+
+type Clients = HashMap<String, Client>;
+type Sessions = HashMap<String, Session>;
+
+type SafeClients = SafeResource<Clients>;
+type SafeSessions = SafeResource<Sessions>;
 
 // Data Stored for a Single User
 #[derive(Debug, Clone)]
 pub struct Client {
     pub user_id: String,
-    // pub topics: Vec<String>,
+    pub session_id: Option<String>,
     pub sender: Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>>,
 }
 
@@ -62,8 +66,8 @@ pub enum GreenCards {}
 
 #[tokio::main]
 async fn main() {
-    let clients: Clients = Arc::new(RwLock::new(HashMap::new()));
-    let sessions: Sessions = Arc::new(RwLock::new(HashMap::new()));
+    let clients: SafeClients = Arc::new(RwLock::new(HashMap::new()));
+    let sessions: SafeSessions = Arc::new(RwLock::new(HashMap::new()));
 
     let health_route = warp::path!("health").and_then(handler::health_handler);
 
