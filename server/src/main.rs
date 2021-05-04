@@ -21,7 +21,7 @@ type SafeSessions = SafeResource<Sessions>;
 // Data Stored for a Single User
 #[derive(Debug, Clone)]
 pub struct Client {
-    pub user_id: String,
+    pub id: String,
     pub session_id: Option<String>,
     pub sender: Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>>,
 }
@@ -29,9 +29,27 @@ pub struct Client {
 // Data Stored for a Game Sessions
 #[derive(Debug, Clone)]
 pub struct Session {
-    pub session_id: String,
+    pub id: String,
     pub client_ids: HashSet<String>,
+    pub client_statuses: HashMap<String, bool>,
     pub game_state: Option<GameState>,
+}
+impl Session {
+    fn get_client_ids_vec(&self) -> Vec<String> {
+        return self.client_ids.clone().into_iter().collect();
+    }
+    fn set_client_active(&mut self, id: &str) {
+        self.client_statuses.insert(id.to_string(), true);
+    }
+    fn set_client_inactive(&mut self, id: &str) {
+        self.client_statuses.insert(id.to_string(), false);
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ClientStatus {
+    pub client_id: String,
+    pub active: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -74,7 +92,7 @@ async fn main() {
     let ws_route = warp::path("ws")
         .and(warp::ws())
         .and(warp::path::param())
-        // Closures which pass the client and sessions maps to our handler
+        // pass copies of our references for the client and sessions maps to our handler
         .and(warp::any().map(move || clients.clone()))
         .and(warp::any().map(move || sessions.clone()))
         .and_then(handler::ws_handler);

@@ -74,11 +74,16 @@ export class ClientConnection {
     })
   }
 
-  public join_session(session_id: string): void {
-    this.send_message({
-      event_code: ClientEventCodes.JoinSession,
-      session_id: session_id
-    })
+  public join_session(session_id: string, errorCallback?: (err: string) => void): void {
+    const error = this.verifySessionID(session_id)
+    if (error) {
+      errorCallback && errorCallback(error)
+    } else {
+      this.send_message({
+        event_code: ClientEventCodes.JoinSession,
+        session_id: session_id
+      })
+    }
   }
 
   public getState(): void {
@@ -96,13 +101,14 @@ export class ClientConnection {
     else
       this.socket.send(JSON.stringify(session_update))
   }
+
+  private verifySessionID(sessionID: string): string {
+    const sessionIDLength = 5
+    const errors: string[] = []
+    if (sessionID.length !== sessionIDLength) {
+      errors.push(`SessionID needs to be ${sessionIDLength} characters`)
+    }
+    return errors.join('')
+  }
 }
 
-export function verifySessionID(sessionID: string): string {
-  const sessionIDLength = 5
-  const errors: string[] = []
-  if (sessionID.length !== sessionIDLength) {
-    errors.push(`SessionID needs to be ${sessionIDLength} characters`)
-  }
-  return errors.join('')
-}

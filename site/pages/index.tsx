@@ -1,9 +1,10 @@
 import Head from 'next/head'
 import { useEffect, useRef, useState } from 'react'
-import { ClientConnection, verifySessionID } from '../utils/websocket-client'
-import { Button, List, ListItem, ListItemText, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
+import { ClientConnection } from '../utils/websocket-client'
+import { Button, IconButton, InputAdornment, List, ListItem, ListItemText, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
 import { ServerEvent, ServerEventCodes } from 'utils/event-types'
 import { environment } from 'environment'
+import { FileCopyOutlined } from '@material-ui/icons'
 
 // wake up app using the health endpoint
 if (environment.healthCheck) {
@@ -15,8 +16,14 @@ export default function Home(): JSX.Element {
   const clientRef = useRef<ClientConnection>(
     new ClientConnection({
       [ServerEventCodes.ClientJoined]: (response: ServerEvent) => {
+        console.log(response)
         if (response.client_id == userRef.current) {
           setActiveSession(response.session_id || '')
+          setNotification({
+            open: true, text: response.session_client_ids?.length == 1
+              ? 'Created New Session!'
+              : 'Joined Session!'
+          })
         } else {
           setNotification({ open: true, text: 'User ' + response.client_id + ' Joined!' })
         }
@@ -26,6 +33,7 @@ export default function Home(): JSX.Element {
         if (response.client_id == userRef.current) {
           setActiveSession('')
           setUsers([])
+          setNotification({ open: true, text: 'Left the Session.' })
         } else {
           setNotification({ open: true, text: 'User ' + response.client_id + ' Left!' })
         }
@@ -33,9 +41,6 @@ export default function Home(): JSX.Element {
       },
       [ServerEventCodes.GameStarted]: () => {
         setNotification({ open: true, text: 'Game is starting!' })
-      },
-      [ServerEventCodes.TurnStart]: (response: ServerEvent) => {
-        setNotification({ open: true, text: user == response.client_id ? 'Your Turn!' : 'User ' + response.client_id + '\'s Turn!' })
       },
       [ServerEventCodes.DataResponse]: (response: ServerEvent) => {
         setActiveSession(response.session_id || '')
@@ -57,7 +62,6 @@ export default function Home(): JSX.Element {
   const [inputSession, setInputSession] = useState('')
   const [notification, setNotification] = useState({ open: false, text: ' ' })
   const [users, setUsers] = useState<string[]>([])
-
 
   return (
     <div style={{ width: '100vw', height: '100vh', backgroundImage: 'linear-gradient(30deg, #16222A, #3A6073)' }}>
@@ -91,7 +95,19 @@ export default function Home(): JSX.Element {
                 activeSession.length != 0
                   ? (
                     <>
-                      <TextField label="Session ID" variant="outlined" value={activeSession} />
+                      <TextField id="session-id" label="Session ID" variant="outlined" value={activeSession}
+                        InputProps={{
+                          endAdornment: <InputAdornment position="end">
+                            <IconButton
+                              onClick={() =>
+                                navigator.clipboard.writeText(activeSession)
+                                  .then(() => setNotification({ open: true, text: 'Copied SessionID: ' + activeSession }))
+                              }
+                            >
+                              <FileCopyOutlined />
+                            </IconButton></InputAdornment>
+                        }}
+                      />
                       <Button onClick={() => {
                         clientRef.current.leave_session()
                       }}>  Leave Session </Button>
@@ -100,11 +116,9 @@ export default function Home(): JSX.Element {
                   : (
                     <>
                       < TextField label="Session ID" variant="outlined" value={inputSession} onChange={(event) => setInputSession(event.target.value)} />
-                      <Button onClick={() => {
-                        const error = verifySessionID(inputSession)
-                        if (error) setNotification({ open: true, text: error })
-                        else clientRef.current.join_session(inputSession)
-                      }}>  Join Session </Button>
+                      <Button onClick={() =>
+                        clientRef.current.join_session(inputSession, (error) => setNotification({ open: true, text: error }))
+                      }>  Join Session </Button>
 
                       <Button onClick={() => {
                         clientRef.current.create_session()
@@ -120,6 +134,7 @@ export default function Home(): JSX.Element {
         </Paper>
 
         <Snackbar
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
           open={notification.open}
           onClose={() => setNotification({ ...notification, open: false })}
           TransitionComponent={Slide}

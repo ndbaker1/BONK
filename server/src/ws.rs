@@ -44,11 +44,12 @@ pub async fn client_connection(
     clients.write().await.insert(
         id.clone(),
         Client {
-            user_id: id.clone(),
+            id: id.clone(),
             sender: Some(client_sender),
             session_id: None,
         },
     );
+    handle_client_connect(&id, &sessions).await;
     println!("{} connected", id);
     //======================================================
     // Synchronously wait for messages from the
@@ -70,6 +71,7 @@ pub async fn client_connection(
     // when they are finished using the socket (or error)
     //======================================================
     clients.write().await.remove(&id);
+    handle_client_disconnect(&id, &sessions).await;
     println!("{} disconnected", id);
 }
 
@@ -96,6 +98,22 @@ async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessio
         //======================================================
         _ => {
             game_engine::handle_event(id, message, clients, sessions).await;
+        }
+    }
+}
+
+async fn handle_client_disconnect(id: &str, sessions: &SafeSessions) {
+    if let Some(session_id) = game_engine::get_client_session_id(id, sessions).await {
+        if let Some(session) = sessions.write().await.get_mut(&session_id) {
+            session.set_client_inactive(id);
+        }
+    }
+}
+
+async fn handle_client_connect(id: &str, sessions: &SafeSessions) {
+    if let Some(session_id) = game_engine::get_client_session_id(id, sessions).await {
+        if let Some(session) = sessions.write().await.get_mut(&session_id) {
+            session.set_client_active(id);
         }
     }
 }

@@ -17,7 +17,6 @@ pub enum ServerEventCodes {
   ClientJoined = 1,
   ClientLeft,
   GameStarted,
-  TurnStart,
   DataResponse,
   InvalidSessionID,
 }
