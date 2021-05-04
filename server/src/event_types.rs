@@ -8,6 +8,7 @@ pub struct ServerEvent {
   pub event_code: ServerEventCodes,
   pub session_id: Option<String>,
   pub client_id: Option<String>,
+  pub session_client_ids: Option<Vec<String>>,
 }
 
 #[derive(Serialize_repr)]
@@ -17,6 +18,7 @@ pub enum ServerEventCodes {
   ClientLeft,
   GameStarted,
   TurnStart,
+  DataResponse,
 }
 
 #[derive(Deserialize)]
@@ -36,4 +38,5 @@ pub enum ClientEventCodes {
   StartGame,
   EndTurn,
   PlayCard,
+  DataRequest,
 }

@@ -44,26 +44,7 @@ export class ClientConnection {
   private create_event_handler(callbacks: Record<number, (response: ServerEvent) => void>) {
     return (event: IMessageEvent) => {
       const response: ServerEvent = JSON.parse(event.data as string)
-      switch (response.event_code) {
-        case ServerEventCodes.ClientJoined: {
-          callbacks[ServerEventCodes.ClientJoined](response)
-          console.log('client', response.client_id, 'joined the room')
-        } break
-        case ServerEventCodes.ClientLeft: {
-          callbacks[ServerEventCodes.ClientLeft](response)
-          console.log('client', response.client_id, 'left the room')
-        } break
-        case ServerEventCodes.GameStarted: {
-          callbacks[ServerEventCodes.GameStarted](response)
-          console.log('game started')
-        } break
-        case ServerEventCodes.TurnStart: {
-          callbacks[ServerEventCodes.TurnStart](response)
-          console.log(`${response.client_id}'s turn has begun`)
-        } break
-        default:
-          console.log(`unknown event_code: ${response.event_code}`)
-      }
+      callbacks[response.event_code](response)
     }
   }
 
@@ -97,6 +78,12 @@ export class ClientConnection {
     this.send_message({
       event_code: ClientEventCodes.JoinSession,
       session_id: session_id
+    })
+  }
+
+  public getState(): void {
+    this.send_message({
+      event_code: ClientEventCodes.DataRequest,
     })
   }
 

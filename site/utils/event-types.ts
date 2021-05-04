@@ -2,9 +2,10 @@
 export type CardID = number
 
 export type ServerEvent = {
-  event_code: ServerEventCodes,
-  session_id?: string,
-  client_id?: string,
+   event_code: ServerEventCodes,
+   session_id?: string,
+   client_id?: string,
+   session_client_ids?: Array<string>,
 }
 
 export enum ServerEventCodes {
@@ -12,13 +13,14 @@ export enum ServerEventCodes {
   ClientLeft,
   GameStarted,
   TurnStart,
+  DataResponse,
 }
 
 export type ClientEvent = {
-  event_code: ClientEventCodes,
-  target_ids?: Array<string>,
-  card_id?: CardID,
-  session_id?: string,
+   event_code: ClientEventCodes,
+   target_ids?: Array<string>,
+   card_id?: CardID,
+   session_id?: string,
 }
 
 export enum ClientEventCodes {
@@ -28,4 +30,5 @@ export enum ClientEventCodes {
   StartGame,
   EndTurn,
   PlayCard,
+  DataRequest,
 }
