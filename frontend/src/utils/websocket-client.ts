@@ -1,12 +1,12 @@
 import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
-import { ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes, ServerEventData } from './types'
+import { ClientEvent, ClientEventCode, ServerEvent, ServerEventCode, ServerEventData } from './shared-types'
 
 export class ClientConnection {
   private socket: W3CWebSocket | null = null
   private eventHandler: (event: IMessageEvent) => void
 
-  constructor(callbacks: Record<ServerEventCodes, (response: ServerEventData) => void>) {
+  constructor(callbacks: Record<ServerEventCode, (response: ServerEventData) => void>) {
     this.eventHandler = this.create_event_handler(callbacks)
   }
 
@@ -57,26 +57,26 @@ export class ClientConnection {
 
   public play_card(card_id: number): void {
     this.send_message({
-      event_code: ClientEventCodes.PlayCard,
+      event_code: ClientEventCode.PlayCard,
       card_id
     })
   }
 
   public create_session(): void {
     this.send_message({
-      event_code: ClientEventCodes.CreateSession,
+      event_code: ClientEventCode.CreateSession,
     })
   }
 
   public leave_session(): void {
     this.send_message({
-      event_code: ClientEventCodes.LeaveSession,
+      event_code: ClientEventCode.LeaveSession,
     })
   }
 
   public startGame(): void {
     this.send_message({
-      event_code: ClientEventCodes.StartGame,
+      event_code: ClientEventCode.StartGame,
     })
   }
 
@@ -87,7 +87,7 @@ export class ClientConnection {
       errorCallback && errorCallback(error)
     } else {
       this.send_message({
-        event_code: ClientEventCodes.JoinSession,
+        event_code: ClientEventCode.JoinSession,
         session_id: session_id
       })
     }
@@ -95,7 +95,7 @@ export class ClientConnection {
 
   public getState(): void {
     this.send_message({
-      event_code: ClientEventCodes.DataRequest,
+      event_code: ClientEventCode.DataRequest,
     })
   }
 

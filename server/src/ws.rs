@@ -1,4 +1,4 @@
-use crate::{game_engine, Client, SafeClients, SafeSessions};
+use crate::{data_types::Client, game_engine::handle_event, SafeClients, SafeSessions};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use warp::ws::{Message, WebSocket};
@@ -105,7 +105,7 @@ async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessio
         // Game Session Related Events
         //======================================================
         _ => {
-            game_engine::handle_event(id, message, clients, sessions).await;
+            handle_event(id, message, clients, sessions).await;
         }
     }
 }

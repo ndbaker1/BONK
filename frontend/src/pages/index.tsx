@@ -2,7 +2,7 @@ import React from 'react'
 import { Helmet } from 'react-helmet'
 import { ClientConnection } from '../utils/websocket-client'
 import { Button, IconButton, InputAdornment, List, ListItem, ListItemText, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
-import { ServerEventCodes, GameState, ServerEventData } from '../utils/types'
+import { ServerEventCode, GameState, ServerEventData } from '../utils/shared-types'
 import { FileCopyOutlined } from '@material-ui/icons'
 import { environment } from '../environment'
 
@@ -17,7 +17,7 @@ export default function Home(): JSX.Element {
   // Make sure to utilize <useRef()> because the object will be stale in closures
   const clientRef = React.useRef<ClientConnection>(
     new ClientConnection({
-      [ServerEventCodes.ClientJoined]: (response: ServerEventData) => {
+      [ServerEventCode.ClientJoined]: (response: ServerEventData) => {
         console.log(response)
         if (response.client_id == userRef.current) {
           setActiveSession(response.session_id || '')
@@ -31,7 +31,7 @@ export default function Home(): JSX.Element {
         }
         setUsers(response.session_client_ids || [])
       },
-      [ServerEventCodes.ClientLeft]: (response: ServerEventData) => {
+      [ServerEventCode.ClientLeft]: (response: ServerEventData) => {
         if (response.client_id == userRef.current) {
           setActiveSession('')
           setUsers([])
@@ -41,20 +41,20 @@ export default function Home(): JSX.Element {
         }
         setUsers(curUsers => curUsers.filter(id => id != response.client_id))
       },
-      [ServerEventCodes.GameStarted]: (response: ServerEventData) => {
+      [ServerEventCode.GameStarted]: (response: ServerEventData) => {
         setGameState(response.game_state)
         setNotification({ open: true, text: 'Game is starting!' })
       },
-      [ServerEventCodes.DataResponse]: (response: ServerEventData) => {
+      [ServerEventCode.DataResponse]: (response: ServerEventData) => {
         setActiveSession(response.session_id || '')
         setUsers(response.session_client_ids || [])
         setNotification({ open: true, text: 'Resumed Previous Session!' })
         setGameState(response.game_state)
       },
-      [ServerEventCodes.InvalidSessionID]: (response: ServerEventData) => {
+      [ServerEventCode.InvalidSessionID]: (response: ServerEventData) => {
         setNotification({ open: true, text: response.session_id + ' is not a valid Session ID' })
       },
-      [ServerEventCodes.TurnStart]: (response: ServerEventData) => {
+      [ServerEventCode.TurnStart]: (response: ServerEventData) => {
         setNotification({ open: true, text: response.session_id + ' is not a valid Session ID' })
       },
     })
@@ -146,7 +146,7 @@ export default function Home(): JSX.Element {
 
   function GameComponent({ users }: { users: string[] }) {
     return (
-      <Paper elevation={7} style={{ display: 'flex', flexDirection: 'column', margin: 'auto 2rem', padding: '2rem' }}>
+      <Paper elevation={7} style={{ display: 'flex', flexDirection: 'column', margin: '4rem', padding: '2rem' }}>
         <div style={{ display: 'flex', flexDirection: 'column', margin: 'auto' }}>
           <TextField id="session-id" label="Session ID" variant="outlined" value={activeSession} />
           <Button onClick={() => {

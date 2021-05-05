@@ -1,9 +1,10 @@
 use crate::{
-  types::{
-    CardID, CharacterCodes, ClientEvent, ClientEventCodes, EffectCodes, GameState, PlayerInfo,
-    ServerEvent, ServerEventCodes, ServerEventData,
+  data_types::{Client, Clients, Session, Sessions},
+  shared_types::{
+    CardCode, CharacterCode, ClientEvent, ClientEventCode, EffectCode, GameState, PlayerInfo,
+    ServerEvent, ServerEventCode, ServerEventData,
   },
-  Client, SafeClients, SafeSessions, Session,
+  SafeClients, SafeSessions,
 };
 use nanoid::nanoid;
 use nanorand::{WyRand, RNG};
@@ -33,14 +34,14 @@ pub async fn handle_event(
   };
 
   match client_event.event_code {
-    ClientEventCodes::DataRequest => {
+    ClientEventCode::DataRequest => {
       if let Some(session_id) = get_client_session_id(client_id, clients).await {
         if let Some(session) = sessions.read().await.get(&session_id) {
           println!("[event] relaying state data for client: {}", client_id);
           if let Some(client) = clients.read().await.get(client_id) {
             notify_client(
               &ServerEvent {
-                event_code: ServerEventCodes::DataResponse,
+                event_code: ServerEventCode::DataResponse,
                 data: Some(ServerEventData {
                   session_id: Some(session.id.clone()),
                   client_id: None,
@@ -54,7 +55,7 @@ pub async fn handle_event(
         }
       }
     }
-    ClientEventCodes::CreateSession => {
+    ClientEventCode::CreateSession => {
       let session = &mut Session {
         client_statuses: HashMap::new(),
         owner: client_id.to_string(),
@@ -75,7 +76,7 @@ pub async fn handle_event(
       if let Some(client) = clients.read().await.get(client_id) {
         notify_client(
           &ServerEvent {
-            event_code: ServerEventCodes::ClientJoined,
+            event_code: ServerEventCode::ClientJoined,
             data: Some(ServerEventData {
               session_id: Some(session.id.clone()),
               client_id: Some(client_id.to_string()),
@@ -92,7 +93,7 @@ pub async fn handle_event(
         sessions.read().await.len()
       );
     }
-    ClientEventCodes::JoinSession => {
+    ClientEventCode::JoinSession => {
       // identify session_id to join
       if let Some(session_id) = client_event.session_id {
         remove_client_from_current_session(client_id, clients, sessions).await;
@@ -115,7 +116,7 @@ pub async fn handle_event(
           if let Some(client) = clients.read().await.get(client_id) {
             notify_client(
               &ServerEvent {
-                event_code: ServerEventCodes::InvalidSessionID,
+                event_code: ServerEventCode::InvalidSessionID,
                 data: Some(ServerEventData {
                   session_id: Some(session_id.clone()),
                   client_id: Some(client_id.to_string()),
@@ -129,10 +130,10 @@ pub async fn handle_event(
         }
       }
     }
-    ClientEventCodes::LeaveSession => {
+    ClientEventCode::LeaveSession => {
       remove_client_from_current_session(client_id, clients, sessions).await;
     }
-    ClientEventCodes::StartGame => {
+    ClientEventCode::StartGame => {
       if let Some(session_id) = get_client_session_id(client_id, clients).await {
         if let Some(session) = sessions.write().await.get_mut(&session_id) {
           match get_player_character_mapping(&session.get_client_ids_vec()) {
@@ -140,14 +141,14 @@ pub async fn handle_event(
               session.game_state = Some(GameState {
                 turn_index: 0,
                 turn_orders,
-                player_blue_cards: HashMap::new(),
-                player_green_cards: HashMap::new(),
+                player_hands: HashMap::new(),
+                player_fields: HashMap::new(),
                 effect: None,
               });
 
               notify_all_clients(
                 &ServerEvent {
-                  event_code: ServerEventCodes::GameStarted,
+                  event_code: ServerEventCode::GameStarted,
                   data: Some(ServerEventData {
                     session_id: Some(session_id),
                     client_id: None,
@@ -164,7 +165,7 @@ pub async fn handle_event(
               eprintln!("[error] {}", msg);
               notify_all_clients(
                 &ServerEvent {
-                  event_code: ServerEventCodes::GameStarted,
+                  event_code: ServerEventCode::GameStarted,
                   data: None,
                 },
                 &session,
@@ -176,7 +177,7 @@ pub async fn handle_event(
         }
       }
     }
-    ClientEventCodes::EndTurn => {
+    ClientEventCode::EndTurn => {
       if let Some(session_id) = get_client_session_id(client_id, clients).await {
         if let Some(session) = sessions.write().await.get_mut(&session_id) {
           if let Some(game_state) = session.game_state.as_mut() {
@@ -185,7 +186,7 @@ pub async fn handle_event(
 
             notify_all_clients(
               &ServerEvent {
-                event_code: ServerEventCodes::TurnStart,
+                event_code: ServerEventCode::TurnStart,
                 data: Some(ServerEventData {
                   session_id: None,
                   client_id: Some(
@@ -205,7 +206,7 @@ pub async fn handle_event(
         }
       }
     }
-    ClientEventCodes::PlayCard => {
+    ClientEventCode::PlayCard => {
       if let Some(card_id) = client_event.card_id {
         if card_has_targets(card_id) {
           if let None = client_event.target_ids {
@@ -221,7 +222,7 @@ pub async fn handle_event(
   }
 }
 
-fn card_has_targets(card_id: CardID) -> bool {
+fn card_has_targets(card_id: CardCode) -> bool {
   return true; // TODO
 }
 
@@ -262,7 +263,7 @@ async fn remove_client_from_current_session(
       // notify all clients in the sessions that the client will be leaving
       notify_all_clients(
         &ServerEvent {
-          event_code: ServerEventCodes::ClientLeft,
+          event_code: ServerEventCode::ClientLeft,
           data: Some(ServerEventData {
             session_id: None,
             client_id: Some(client_id.to_string()),
@@ -322,7 +323,7 @@ async fn insert_client_into_given_session(
   // notify all clients in the session that the client has joined
   notify_all_clients(
     &ServerEvent {
-      event_code: ServerEventCodes::ClientJoined,
+      event_code: ServerEventCode::ClientJoined,
       data: Some(ServerEventData {
         session_id: Some(session.id.clone()),
         client_id: Some(client_id.to_string()),
@@ -340,7 +341,7 @@ fn set_new_session_owner(session: &mut Session, clients: &SafeClients, client_id
   session.owner = client_id.clone();
   // notify_all_clients(
   //   &ServerEvent {
-  //     event_code: ServerEventCodes::SessionOwnerChange,
+  //     event_code: ServerEventCode::SessionOwnerChange,
   //     session_id: Some(session.id.clone()),
   //     client_id: Some(client_id.clone()),
   //     session_client_ids: None,
@@ -356,12 +357,12 @@ fn get_player_character_mapping(client_vec: &Vec<String>) -> Result<Vec<PlayerIn
     return Err("Cannot Play with less than 4 Players!");
   }
 
-  let mut list: Vec<CharacterCodes> = Vec::with_capacity(player_count);
+  let mut list: Vec<CharacterCode> = Vec::with_capacity(player_count);
   list.extend(
     [
-      CharacterCodes::Renegade,
-      CharacterCodes::Outlaw,
-      CharacterCodes::Outlaw,
+      CharacterCode::Renegade,
+      CharacterCode::Outlaw,
+      CharacterCode::Outlaw,
     ]
     .iter()
     .cloned(),
@@ -371,24 +372,24 @@ fn get_player_character_mapping(client_vec: &Vec<String>) -> Result<Vec<PlayerIn
   // 6 players: Sheriff, 1 Renegade, 3 Outlaws, 1 Deputy
   // 7 players: Sheriff, 1 Renegade, 3 Outlaws, 2 Deputy
   if player_count >= 5 {
-    list.push(CharacterCodes::Deputy);
+    list.push(CharacterCode::Deputy);
   }
   if player_count >= 6 {
-    list.push(CharacterCodes::Outlaw);
+    list.push(CharacterCode::Outlaw);
   }
   if player_count >= 7 {
-    list.push(CharacterCodes::Deputy);
+    list.push(CharacterCode::Deputy);
   }
   // shuffle
   WyRand::new().shuffle(&mut list);
   // set sheriff as first turn
-  list.insert(0, CharacterCodes::Sheriff);
+  list.insert(0, CharacterCode::Sheriff);
 
   let mut playerinfo_vec: Vec<PlayerInfo> = client_vec
     .iter()
     .map(|id| PlayerInfo {
       client_id: id.clone(),
-      character_code: CharacterCodes::Sheriff,
+      character_code: CharacterCode::Sheriff,
     })
     .collect();
   // assign the corresponding positions to their characters
@@ -417,3 +418,7 @@ async fn get_client_session_id(client_id: &str, clients: &SafeClients) -> Option
     None
   }
 }
+
+// fn get_card_dictionary() -> CardDictionary {
+//   return
+// }
