@@ -2,7 +2,6 @@ import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
 import { ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes } from './event-types'
 
-
 export class ClientConnection {
   private socket: W3CWebSocket | null = null
   private eventHandler: (event: IMessageEvent) => void
@@ -13,7 +12,7 @@ export class ClientConnection {
 
   public connect(user_id: string, callbacks: Record<'open' | 'error', () => void>): void {
     const setupConnection = () => {
-      this.socket = new W3CWebSocket(`${environment.wsProtocol}://${environment.apiDomain}/ws/${user_id}`)
+      this.socket = new W3CWebSocket(`${environment.ws_or_wss}://${environment.apiDomain}/ws/${user_id}`)
       this.socket.onopen = () => {
         console.log('connected to websocket!', this.socket)
         callbacks.open()
@@ -35,32 +34,17 @@ export class ClientConnection {
     }
   }
 
+  public disconnect(): void {
+    this.socket?.close()
+  }
+
   //=====================================
   // Receives Messages from the Server
   //=====================================
   private create_event_handler(callbacks: Record<number, (response: ServerEvent) => void>) {
     return (event: IMessageEvent) => {
       const response: ServerEvent = JSON.parse(event.data as string)
-      switch (response.event_code) {
-        case ServerEventCodes.ClientJoined: {
-          callbacks[ServerEventCodes.ClientJoined](response)
-          console.log('client', response.client_id, 'joined the room')
-        } break
-        case ServerEventCodes.ClientLeft: {
-          callbacks[ServerEventCodes.ClientLeft](response)
-          console.log('client', response.client_id, 'left the room')
-        } break
-        case ServerEventCodes.GameStarted: {
-          callbacks[ServerEventCodes.GameStarted](response)
-          console.log('game started')
-        } break
-        case ServerEventCodes.TurnStart: {
-          callbacks[ServerEventCodes.TurnStart](response)
-          console.log(`${response.client_id}'s turn has begun`)
-        } break
-        default:
-          console.log(`unknown event_code: ${response.event_code}`)
-      }
+      callbacks[response.event_code](response)
     }
   }
 
@@ -90,10 +74,21 @@ export class ClientConnection {
     })
   }
 
-  public join_session(session_id: string): void {
+  public join_session(session_id: string, errorCallback?: (err: string) => void): void {
+    const error = this.verifySessionID(session_id)
+    if (error) {
+      errorCallback && errorCallback(error)
+    } else {
+      this.send_message({
+        event_code: ClientEventCodes.JoinSession,
+        session_id: session_id
+      })
+    }
+  }
+
+  public getState(): void {
     this.send_message({
-      event_code: ClientEventCodes.JoinSession,
-      session_id: session_id
+      event_code: ClientEventCodes.DataRequest,
     })
   }
 
@@ -106,4 +101,14 @@ export class ClientConnection {
     else
       this.socket.send(JSON.stringify(session_update))
   }
+
+  private verifySessionID(sessionID: string): string {
+    const sessionIDLength = 5
+    const errors: string[] = []
+    if (sessionID.length !== sessionIDLength) {
+      errors.push(`SessionID needs to be ${sessionIDLength} characters`)
+    }
+    return errors.join('')
+  }
 }
+
