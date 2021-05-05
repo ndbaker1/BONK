@@ -40,8 +40,8 @@ pub enum ClientEventCodes {
   JoinSession = 1,
   CreateSession,
   LeaveSession,
+  DataRequest,
   StartGame,
   EndTurn,
   PlayCard,
-  DataRequest,
 }

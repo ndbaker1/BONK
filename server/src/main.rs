@@ -30,9 +30,9 @@ pub struct Client {
 #[derive(Debug, Clone)]
 pub struct Session {
     pub id: String,
-    pub game_state: Option<GameState>,
     pub owner: String,
     pub client_statuses: HashMap<String, bool>,
+    pub game_state: Option<GameState>,
 }
 impl Session {
     fn get_client_count(&self) -> usize {
@@ -51,8 +51,8 @@ impl Session {
     fn remove_client(&mut self, id: &str) {
         self.client_statuses.remove(id);
     }
-    fn insert_client(&mut self, id: &str, active_status: bool) {
-        self.client_statuses.insert(id.to_string(), active_status);
+    fn insert_client(&mut self, id: &str, is_active: bool) {
+        self.client_statuses.insert(id.to_string(), is_active);
     }
     fn get_clients_with_active_status(&self, active_status: bool) -> Vec<String> {
         self.client_statuses
@@ -62,9 +62,9 @@ impl Session {
             .map(|(id, _)| id)
             .collect::<Vec<String>>()
     }
-    fn set_client_active(&mut self, id: &str) {
+    fn set_client_active_status(&mut self, id: &str, is_active: bool) {
         if let Some(_) = self.client_statuses.get(id) {
-            self.client_statuses.insert(id.to_string(), true);
+            self.client_statuses.insert(id.to_string(), is_active);
         } else {
             println!(
                 "[warning] tried to set active_status of client: {} but id was not found in session",
@@ -72,22 +72,6 @@ impl Session {
             );
         }
     }
-    fn set_client_inactive(&mut self, id: &str) {
-        if let Some(_) = self.client_statuses.get(id) {
-            self.client_statuses.insert(id.to_string(), false);
-        } else {
-            println!(
-                "[warning] tried to set active_status of client: {} but id was not found in session",
-                id
-            );
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ClientStatus {
-    pub client_id: String,
-    pub active: bool,
 }
 
 #[derive(Debug, Clone)]

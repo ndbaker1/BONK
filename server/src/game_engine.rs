@@ -30,9 +30,9 @@ pub async fn handle_event(
 
   match client_event.event_code {
     ClientEventCodes::DataRequest => {
-      if let Some(session_id) = get_client_session_id(client_id, sessions).await {
-        if let Some(session) = sessions.write().await.get_mut(&session_id) {
-          if let Some(client) = clients.read().await.get(client_id) {
+      if let Some(client) = clients.read().await.get(client_id) {
+        if let Some(session_id) = &client.session_id {
+          if let Some(session) = sessions.read().await.get(session_id) {
             println!("[event] relaying state data for client: {}", client_id);
             notify_client(
               &ServerEvent {
@@ -61,6 +61,10 @@ pub async fn handle_event(
         .await
         .insert(session.id.clone(), session.clone());
 
+      if let Some(client) = clients.write().await.get_mut(client_id) {
+        client.session_id = Some(session.id.clone());
+      }
+
       if let Some(client) = clients.read().await.get(client_id) {
         notify_client(
           &ServerEvent {
@@ -83,19 +87,18 @@ pub async fn handle_event(
       if let Some(session_id) = client_event.session_id {
         remove_client_from_current_session(client_id, clients, sessions).await;
         if let Some(session) = sessions.write().await.get_mut(&session_id) {
-          let r_clients = clients.read().await;
-          insert_client_into_given_session(client_id, &r_clients, session);
-          drop(r_clients);
+          insert_client_into_given_session(client_id, &clients, session).await;
         } else {
           eprintln!(
             "[warning] could not get session_id for client: {}",
             client_id
           );
+
           if let Some(client) = clients.read().await.get(client_id) {
             notify_client(
               &ServerEvent {
                 event_code: ServerEventCodes::InvalidSessionID,
-                session_id: Some(session_id),
+                session_id: Some(session_id.clone()),
                 client_id: Some(client_id.to_string()),
                 session_client_ids: None,
               },
@@ -109,7 +112,12 @@ pub async fn handle_event(
       remove_client_from_current_session(client_id, clients, sessions).await;
     }
     ClientEventCodes::StartGame => {
-      if let Some(session_id) = get_client_session_id(client_id, sessions).await {
+      let mut session_id_option: Option<String> = None;
+      if let Some(client) = clients.read().await.get(client_id) {
+        session_id_option = client.session_id.clone()
+      }
+
+      if let Some(session_id) = session_id_option {
         if let Some(session) = sessions.write().await.get_mut(&session_id) {
           // assign roles to players
           let turn_orders: Vec<PlayerInfo> = session
@@ -129,20 +137,17 @@ pub async fn handle_event(
             effect: EffectCodes::None,
           });
 
-          {
-            // create scope for read lock
-            let r_clients = clients.read().await;
-            notify_all_clients(
-              &ServerEvent {
-                event_code: ServerEventCodes::GameStarted,
-                session_id: None,
-                client_id: None,
-                session_client_ids: None,
-              },
-              &session,
-              &r_clients,
-            );
-          }
+          notify_all_clients(
+            &ServerEvent {
+              event_code: ServerEventCodes::GameStarted,
+              session_id: None,
+              client_id: None,
+              session_client_ids: None,
+            },
+            &session,
+            &clients,
+          )
+          .await;
         }
       }
     }
@@ -193,9 +198,11 @@ fn card_has_targets(card_id: CardID) -> bool {
 }
 
 /// Send an update to all clients in the session
-fn notify_all_clients(game_update: &ServerEvent, session: &Session, clients: &Clients) {
+///
+/// Uses a Read lock on clients
+async fn notify_all_clients(game_update: &ServerEvent, session: &Session, clients: &SafeClients) {
   for (client_id, _) in &session.client_statuses {
-    if let Some(client) = clients.get(client_id) {
+    if let Some(client) = clients.read().await.get(client_id) {
       notify_client(game_update, client);
     }
   }
@@ -215,27 +222,21 @@ fn notify_client(game_update: &ServerEvent, client: &Client) {
   }
 }
 
-/// Gets the SessionID of a client if it exists
-pub async fn get_client_session_id(client_id: &str, sessions: &SafeSessions) -> Option<String> {
-  for session in sessions.read().await.values() {
-    if session.contains_client(client_id) {
-      return Some(session.id.clone());
-    }
-  }
-  return None;
-}
-
 /// Removes a client from the session that they currently exist under
 async fn remove_client_from_current_session(
   client_id: &str,
   clients: &SafeClients,
   sessions: &SafeSessions,
 ) {
-  if let Some(session_id) = get_client_session_id(client_id, sessions).await {
+  let mut session_id_option: Option<String> = None;
+  if let Some(client) = clients.read().await.get(client_id) {
+    session_id_option = client.session_id.clone()
+  }
+
+  if let Some(session_id) = session_id_option {
     let mut session_empty: bool = false;
     if let Some(session) = sessions.write().await.get_mut(&session_id) {
       // notify all clients in the sessions that the client will be leaving
-      let r_clients = clients.read().await;
       notify_all_clients(
         &ServerEvent {
           event_code: ServerEventCodes::ClientLeft,
@@ -244,11 +245,15 @@ async fn remove_client_from_current_session(
           session_client_ids: None,
         },
         &session,
-        &r_clients,
-      );
-      drop(r_clients);
+        &clients,
+      )
+      .await;
       // remove the client from the session
       session.remove_client(&client_id.to_string());
+      // revoke the client's copy of the session_id
+      if let Some(client) = clients.write().await.get_mut(client_id) {
+        client.session_id = None;
+      }
       println!(
         "[event] clients remainings in session: {} after {} left: {}",
         session_id,
@@ -259,9 +264,7 @@ async fn remove_client_from_current_session(
       session_empty = session.get_clients_with_active_status(true).is_empty();
       // if the session is not empty, make someone else the owner
       if !session_empty {
-        let r_clients = clients.read().await;
-        set_new_session_owner(session, &r_clients, &session.get_client_ids_vec()[0]);
-        drop(r_clients);
+        set_new_session_owner(session, &clients, &session.get_client_ids_vec()[0]);
       }
     }
     // clean up the session from the map if it is empty
@@ -277,8 +280,19 @@ async fn remove_client_from_current_session(
 }
 
 /// Takes a mutable session reference in order to add a client to a given session
-fn insert_client_into_given_session(client_id: &str, clients: &Clients, session: &mut Session) {
+///
+/// Uses a Read lock for Clients
+async fn insert_client_into_given_session(
+  client_id: &str,
+  clients: &SafeClients,
+  session: &mut Session,
+) {
+  // add client to session
   session.insert_client(client_id, true);
+  // update session_id of client
+  if let Some(client) = clients.write().await.get_mut(client_id) {
+    client.session_id = Some(session.id.clone());
+  }
   // notify all clients in the session that the client has joined
   notify_all_clients(
     &ServerEvent {
@@ -289,10 +303,11 @@ fn insert_client_into_given_session(client_id: &str, clients: &Clients, session:
     },
     &session,
     &clients,
-  );
+  )
+  .await;
 }
 
-fn set_new_session_owner(session: &mut Session, clients: &Clients, client_id: &String) {
+fn set_new_session_owner(session: &mut Session, clients: &SafeClients, client_id: &String) {
   session.owner = client_id.clone();
   // notify_all_clients(
   //   &ServerEvent {
