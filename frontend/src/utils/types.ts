@@ -2,24 +2,27 @@
 export type CardID = number
 
 export type ServerEvent = {
-   event_code: ServerEventCodes,
-   session_id?: string,
-   client_id?: string,
-   session_client_ids?: Array<string>,
-   game_state?: GameState,
+  event_code: ServerEventCodes,
+  data?: ServerEventData,
+}
+
+export type ServerEventData = {
+  session_id?: string,
+  client_id?: string,
+  session_client_ids?: Array<string>,
+  game_state?: GameState,
 }
 
 export type GameState = {
-   turn_index: number,
-   turn_orders: Array<PlayerInfo>,
-   player_blue_cards: Record<string, Array<BlueCards>>,
-   player_green_cards: Record<string, Array<GreenCards>>,
-   effect: EffectCodes,
+  turn_index: number,
+  turn_orders: Array<PlayerInfo>,
+  player_blue_cards: Record<string, Array<BlueCards>>,
+  player_green_cards: Record<string, Array<GreenCards>>,
+  effect?: EffectCodes,
 }
 
 export enum EffectCodes {
   GeneralStore = 1,
-  None,
 }
 
 export enum BlueCards {
@@ -32,8 +35,8 @@ export enum GreenCards {
 }
 
 export type PlayerInfo = {
-   client_id: string,
-   character_code: CharacterCodes,
+  client_id: string,
+  character_code: CharacterCodes,
 }
 
 export enum ServerEventCodes {
@@ -46,13 +49,15 @@ export enum ServerEventCodes {
   DataResponse,
   // session_id, client_id
   InvalidSessionID,
+  // client_id
+  TurnStart,
 }
 
 export type ClientEvent = {
-   event_code: ClientEventCodes,
-   target_ids?: Array<string>,
-   card_id?: CardID,
-   session_id?: string,
+  event_code: ClientEventCodes,
+  target_ids?: Array<string>,
+  card_id?: CardID,
+  session_id?: string,
 }
 
 export enum ClientEventCodes {

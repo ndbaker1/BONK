@@ -7,6 +7,11 @@ pub type CardID = u8;
 #[derive(Serialize)]
 pub struct ServerEvent {
   pub event_code: ServerEventCodes,
+  pub data: Option<ServerEventData>,
+}
+
+#[derive(Serialize)]
+pub struct ServerEventData {
   pub session_id: Option<String>,
   pub client_id: Option<String>,
   pub session_client_ids: Option<Vec<String>>,
@@ -59,6 +64,8 @@ pub enum ServerEventCodes {
   DataResponse,
   // session_id, client_id
   InvalidSessionID,
+  // client_id
+  TurnStart,
 }
 
 #[derive(Deserialize)]

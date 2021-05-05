@@ -1,12 +1,12 @@
 import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
-import { ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes } from './types'
+import { ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes, ServerEventData } from './types'
 
 export class ClientConnection {
   private socket: W3CWebSocket | null = null
   private eventHandler: (event: IMessageEvent) => void
 
-  constructor(callbacks: Record<ServerEventCodes, (response: ServerEvent) => void>) {
+  constructor(callbacks: Record<ServerEventCodes, (response: ServerEventData) => void>) {
     this.eventHandler = this.create_event_handler(callbacks)
   }
 
@@ -41,10 +41,10 @@ export class ClientConnection {
   //=====================================
   // Receives Messages from the Server
   //=====================================
-  private create_event_handler(callbacks: Record<number, (response: ServerEvent) => void>) {
+  private create_event_handler(callbacks: Record<number, (response: ServerEventData) => void>) {
     return (event: IMessageEvent) => {
       const response: ServerEvent = JSON.parse(event.data as string)
-      callbacks[response.event_code](response)
+      callbacks[response.event_code](response.data || {})
     }
   }
 
