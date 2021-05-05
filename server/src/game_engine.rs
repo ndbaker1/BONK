@@ -1,8 +1,12 @@
 use crate::{
-  event_types::{CardID, ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes},
-  Client, Clients, EffectCodes, GameState, PlayerInfo, SafeClients, SafeSessions, Session,
+  types::{
+    CardID, CharacterCodes, ClientEvent, ClientEventCodes, EffectCodes, GameState, PlayerInfo,
+    ServerEvent, ServerEventCodes,
+  },
+  Client, SafeClients, SafeSessions, Session,
 };
 use nanoid::nanoid;
+use nanorand::{WyRand, RNG};
 use serde_json::from_str;
 use std::collections::HashMap;
 use warp::ws::Message;
@@ -30,6 +34,9 @@ pub async fn handle_event(
 
   match client_event.event_code {
     ClientEventCodes::DataRequest => {
+      //=======================================================
+      // Nested Locks safe: C:R -> S:R -> notify_client[C:R]
+      //=======================================================
       if let Some(client) = clients.read().await.get(client_id) {
         if let Some(session_id) = &client.session_id {
           if let Some(session) = sessions.read().await.get(session_id) {
@@ -40,6 +47,7 @@ pub async fn handle_event(
                 session_id: Some(session.id.clone()),
                 client_id: None,
                 session_client_ids: Some(session.get_client_ids_vec()),
+                game_state: None,
               },
               client,
             );
@@ -72,6 +80,7 @@ pub async fn handle_event(
             session_id: Some(session.id.clone()),
             client_id: Some(client_id.to_string()),
             session_client_ids: Some(session.get_client_ids_vec()),
+            game_state: None,
           },
           &client,
         );
@@ -87,6 +96,10 @@ pub async fn handle_event(
       if let Some(session_id) = client_event.session_id {
         remove_client_from_current_session(client_id, clients, sessions).await;
         if let Some(session) = sessions.write().await.get_mut(&session_id) {
+          if session.game_state.is_some() {
+            // do not allow clients to join an active game
+            return;
+          }
           insert_client_into_given_session(client_id, &clients, session).await;
         } else {
           eprintln!(
@@ -101,6 +114,7 @@ pub async fn handle_event(
                 session_id: Some(session_id.clone()),
                 client_id: Some(client_id.to_string()),
                 session_client_ids: None,
+                game_state: None,
               },
               &client,
             );
@@ -112,6 +126,9 @@ pub async fn handle_event(
       remove_client_from_current_session(client_id, clients, sessions).await;
     }
     ClientEventCodes::StartGame => {
+      //=======================================================
+      // Get SessionID Option without nesting Client-Read Lock
+      //=======================================================
       let mut session_id_option: Option<String> = None;
       if let Some(client) = clients.read().await.get(client_id) {
         session_id_option = client.session_id.clone()
@@ -120,29 +137,24 @@ pub async fn handle_event(
       if let Some(session_id) = session_id_option {
         if let Some(session) = sessions.write().await.get_mut(&session_id) {
           // assign roles to players
-          let turn_orders: Vec<PlayerInfo> = session
-            .get_client_ids_vec()
-            .iter()
-            .map(|client_id| PlayerInfo {
-              client_id: client_id.clone(),
-              character: "Sheriff".to_string(),
-            })
-            .collect();
+          let turn_orders: Vec<PlayerInfo> =
+            get_player_character_mapping(&session.get_client_ids_vec());
 
           session.game_state = Some(GameState {
             turn_index: 0,
             turn_orders,
             player_blue_cards: HashMap::new(),
             player_green_cards: HashMap::new(),
-            effect: EffectCodes::None,
+            effect: None,
           });
 
           notify_all_clients(
             &ServerEvent {
               event_code: ServerEventCodes::GameStarted,
-              session_id: None,
+              session_id: Some(session_id),
               client_id: None,
-              session_client_ids: None,
+              session_client_ids: Some(session.get_client_ids_vec()),
+              game_state: session.game_state.clone(),
             },
             &session,
             &clients,
@@ -228,6 +240,9 @@ async fn remove_client_from_current_session(
   clients: &SafeClients,
   sessions: &SafeSessions,
 ) {
+  //=======================================================
+  // Get SessionID Option without nesting Client-Read Lock
+  //=======================================================
   let mut session_id_option: Option<String> = None;
   if let Some(client) = clients.read().await.get(client_id) {
     session_id_option = client.session_id.clone()
@@ -243,6 +258,7 @@ async fn remove_client_from_current_session(
           session_id: None,
           client_id: Some(client_id.to_string()),
           session_client_ids: None,
+          game_state: None,
         },
         &session,
         &clients,
@@ -300,6 +316,7 @@ async fn insert_client_into_given_session(
       session_id: Some(session.id.clone()),
       client_id: Some(client_id.to_string()),
       session_client_ids: Some(session.get_client_ids_vec()),
+      game_state: None,
     },
     &session,
     &clients,
@@ -319,6 +336,51 @@ fn set_new_session_owner(session: &mut Session, clients: &SafeClients, client_id
   //   &session,
   //   &clients,
   // );
+}
+
+fn get_player_character_mapping(client_vec: &Vec<String>) -> Vec<PlayerInfo> {
+  let player_count = client_vec.len();
+  let mut list: Vec<CharacterCodes> = Vec::with_capacity(player_count);
+  list.extend(
+    [
+      CharacterCodes::Renegade,
+      CharacterCodes::Outlaw,
+      CharacterCodes::Outlaw,
+    ]
+    .iter()
+    .cloned(),
+  );
+  // 4 players: Sheriff, 1 Renegade, 2 Outlaws
+  // 5 players: Sheriff, 1 Renegade, 2 Outlaws, 1 Deputy
+  // 6 players: Sheriff, 1 Renegade, 3 Outlaws, 1 Deputy
+  // 7 players: Sheriff, 1 Renegade, 3 Outlaws, 2 Deputy
+  if player_count >= 5 {
+    list.push(CharacterCodes::Deputy);
+  }
+  if player_count >= 6 {
+    list.push(CharacterCodes::Outlaw);
+  }
+  if player_count >= 7 {
+    list.push(CharacterCodes::Deputy);
+  }
+  // shuffle
+  WyRand::new().shuffle(&mut list);
+  // set sheriff as first turn
+  list.insert(0, CharacterCodes::Sheriff);
+
+  let mut playerinfo_vec: Vec<PlayerInfo> = client_vec
+    .iter()
+    .map(|id| PlayerInfo {
+      client_id: id.clone(),
+      character_code: CharacterCodes::Sheriff,
+    })
+    .collect();
+  // assign the corresponding positions to their characters
+  for (i, character) in list.iter().clone().enumerate() {
+    playerinfo_vec[i].character_code = character.clone();
+  }
+
+  return playerinfo_vec;
 }
 
 /// Gets a random new session 1 that is 5 characters long

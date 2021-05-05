@@ -6,6 +6,34 @@ export type ServerEvent = {
    session_id?: string,
    client_id?: string,
    session_client_ids?: Array<string>,
+   game_state?: GameState,
+}
+
+export type GameState = {
+   turn_index: number,
+   turn_orders: Array<PlayerInfo>,
+   player_blue_cards: Record<string, Array<BlueCards>>,
+   player_green_cards: Record<string, Array<GreenCards>>,
+   effect: EffectCodes,
+}
+
+export enum EffectCodes {
+  GeneralStore = 1,
+  None,
+}
+
+export enum BlueCards {
+  Barrel = 1,
+  Dynamite,
+}
+
+export enum GreenCards {
+  PonyExpress = 1,
+}
+
+export type PlayerInfo = {
+   client_id: string,
+   character_code: CharacterCodes,
 }
 
 export enum ServerEventCodes {
@@ -36,4 +64,11 @@ export enum ClientEventCodes {
   StartGame,
   EndTurn,
   PlayCard,
+}
+
+export enum CharacterCodes {
+  Sheriff = 1,
+  Renegade,
+  Outlaw,
+  Deputy,
 }

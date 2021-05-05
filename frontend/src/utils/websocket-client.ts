@@ -1,6 +1,6 @@
 import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
-import { ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes } from './event-types'
+import { ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes } from './types'
 
 export class ClientConnection {
   private socket: W3CWebSocket | null = null
@@ -73,6 +73,13 @@ export class ClientConnection {
       event_code: ClientEventCodes.LeaveSession,
     })
   }
+
+  public startGame(): void {
+    this.send_message({
+      event_code: ClientEventCodes.StartGame,
+    })
+  }
+
 
   public join_session(session_id: string, errorCallback?: (err: string) => void): void {
     const error = this.verifySessionID(session_id)

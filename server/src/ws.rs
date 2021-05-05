@@ -49,6 +49,7 @@ pub async fn client_connection(
             session_id: get_client_session_id(&id, &sessions).await,
         },
     );
+
     if let Some(client) = clients.read().await.get(&id) {
         handle_client_connect(&client, &sessions).await;
     }

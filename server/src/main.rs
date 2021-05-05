@@ -1,12 +1,12 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
 use warp::{ws::Message, Filter, Rejection};
 
-mod event_types;
 mod game_engine;
 mod handler;
+mod types;
 mod ws;
 
 type Result<T> = std::result::Result<T, Rejection>;
@@ -32,7 +32,7 @@ pub struct Session {
     pub id: String,
     pub owner: String,
     pub client_statuses: HashMap<String, bool>,
-    pub game_state: Option<GameState>,
+    pub game_state: Option<types::GameState>,
 }
 impl Session {
     fn get_client_count(&self) -> usize {
@@ -63,7 +63,7 @@ impl Session {
             .collect::<Vec<String>>()
     }
     fn set_client_active_status(&mut self, id: &str, is_active: bool) {
-        if let Some(_) = self.client_statuses.get(id) {
+        if self.client_statuses.get(id).is_some() {
             self.client_statuses.insert(id.to_string(), is_active);
         } else {
             println!(
@@ -73,36 +73,6 @@ impl Session {
         }
     }
 }
-
-#[derive(Debug, Clone)]
-pub struct GameState {
-    pub turn_index: usize,
-    pub turn_orders: Vec<PlayerInfo>,
-    pub player_blue_cards: HashMap<String, HashSet<BlueCards>>,
-    pub player_green_cards: HashMap<String, HashSet<GreenCards>>,
-    pub effect: EffectCodes,
-}
-
-#[derive(Debug, Clone)]
-pub struct PlayerInfo {
-    pub client_id: String,
-    pub character: String,
-}
-
-#[derive(Debug, Clone)]
-pub enum EffectCodes {
-    GeneralStore = 1,
-    None,
-}
-
-#[derive(Debug, Clone)]
-pub enum BlueCards {
-    Barrel = 1,
-    Dynamite,
-}
-
-#[derive(Debug, Clone)]
-pub enum GreenCards {}
 
 #[tokio::main]
 async fn main() {

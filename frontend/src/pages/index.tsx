@@ -2,7 +2,7 @@ import React from 'react'
 import { Helmet } from 'react-helmet'
 import { ClientConnection } from '../utils/websocket-client'
 import { Button, IconButton, InputAdornment, List, ListItem, ListItemText, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
-import { ServerEvent, ServerEventCodes } from '../utils/event-types'
+import { ServerEvent, ServerEventCodes } from '../utils/types'
 import { FileCopyOutlined } from '@material-ui/icons'
 import { environment } from '../environment'
 
@@ -40,7 +40,8 @@ export default function Home(): JSX.Element {
         }
         setUsers(curUsers => curUsers.filter(id => id != response.client_id))
       },
-      [ServerEventCodes.GameStarted]: () => {
+      [ServerEventCodes.GameStarted]: (response: ServerEvent) => {
+        console.log(response)
         setNotification({ open: true, text: 'Game is starting!' })
       },
       [ServerEventCodes.DataResponse]: (response: ServerEvent) => {
@@ -113,6 +114,10 @@ export default function Home(): JSX.Element {
                       <Button onClick={() => {
                         clientRef.current.leave_session()
                       }}>  Leave Session </Button>
+
+                      <Button onClick={() => {
+                        clientRef.current.startGame()
+                      }}>  Start Game </Button>
                     </>
                   )
                   : (
