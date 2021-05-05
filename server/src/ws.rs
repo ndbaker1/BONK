@@ -1,10 +1,15 @@
-use crate::{game_engine, Client, Clients, Sessions};
+use crate::{game_engine, Client, SafeClients, SafeSessions};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use warp::ws::{Message, WebSocket};
 
 /// The Initial Setup for a WebSocket Connection
-pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sessions: Sessions) {
+pub async fn client_connection(
+    ws: WebSocket,
+    id: String,
+    clients: SafeClients,
+    sessions: SafeSessions,
+) {
     //======================================================
     // Splits the WebSocket into a Sink + Stream:
     // Sink - Pools the messages to get send to the client
@@ -25,7 +30,7 @@ pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sess
     //======================================================
     tokio::task::spawn(client_rcv.forward(client_ws_sender).map(|result| {
         if let Err(e) = result {
-            eprintln!("error sending websocket msg: {}", e);
+            eprintln!("[error] failed to send websocket msg: {}", e);
         }
     }));
     //======================================================
@@ -39,11 +44,12 @@ pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sess
     clients.write().await.insert(
         id.clone(),
         Client {
-            user_id: id.clone(),
+            id: id.clone(),
             sender: Some(client_sender),
+            session_id: None,
         },
     );
-    println!("{} connected", id);
+    handle_client_connect(&id, &sessions).await;
     //======================================================
     // Synchronously wait for messages from the
     // Client Receiver Stream until an error occurs
@@ -55,7 +61,11 @@ pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sess
                 handle_client_msg(&id, msg, &clients, &sessions).await;
             }
             Err(e) => {
-                eprintln!("error receiving ws message for id: {}): {}", id.clone(), e);
+                eprintln!(
+                    "[error] failed to recieve websocket message for id: {} :: error: {}",
+                    id.clone(),
+                    e,
+                );
             }
         }
     }
@@ -64,18 +74,20 @@ pub async fn client_connection(ws: WebSocket, id: String, clients: Clients, sess
     // when they are finished using the socket (or error)
     //======================================================
     clients.write().await.remove(&id);
-    println!("{} disconnected", id);
+    handle_client_disconnect(&id, &sessions).await;
 }
 
-/// Handles messages from a receiving websocket
-async fn handle_client_msg(id: &str, msg: Message, clients: &Clients, sessions: &Sessions) {
-    println!("received message from {}: {:?}", id, msg);
+/// Handle messages from an open receiving websocket
+async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessions: &SafeSessions) {
     //======================================================
     // Ensure the Message Parses to String
     //======================================================
     let message = match msg.to_str() {
         Ok(v) => v,
-        Err(_) => return,
+        Err(_) => {
+            eprintln!("[error] failed to convert websocket message into string");
+            return;
+        }
     };
 
     match message {
@@ -83,13 +95,46 @@ async fn handle_client_msg(id: &str, msg: Message, clients: &Clients, sessions: 
         // ignore pings
         //======================================================
         "ping" | "ping\n" => {
-            println!("ignoring ping...");
+            println!("[event] ignoring ping...");
         }
         //======================================================
         // Game Session Related Events
         //======================================================
         _ => {
             game_engine::handle_event(id, message, clients, sessions).await;
+        }
+    }
+}
+
+/// If a client exists in a session, then set their status to inactive.
+///
+/// If setting inactive status would leave no other active member, remove the session
+async fn handle_client_disconnect(id: &str, sessions: &SafeSessions) {
+    println!("[event] {} disconnected", id);
+    if let Some(session_id) = game_engine::get_client_session_id(id, sessions).await {
+        let mut session_empty = false;
+        // remove the client from the sessionand check if the session become empty
+        if let Some(session) = sessions.write().await.get_mut(&session_id) {
+            session.set_client_inactive(id);
+            session_empty = session.get_clients_with_active_status(true).is_empty();
+        }
+        // remove the session if empty
+        if session_empty {
+            sessions.write().await.remove(&session_id);
+            println!(
+                "[event] removed empty session :: remaining session count: {}",
+                sessions.read().await.len()
+            );
+        }
+    }
+}
+
+/// If a client exists in a session, then set their status to active
+async fn handle_client_connect(id: &str, sessions: &SafeSessions) {
+    println!("[event] {} connected", id);
+    if let Some(session_id) = game_engine::get_client_session_id(id, sessions).await {
+        if let Some(session) = sessions.write().await.get_mut(&session_id) {
+            session.set_client_active(id);
         }
     }
 }
