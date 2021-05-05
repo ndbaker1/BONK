@@ -30,19 +30,57 @@ pub struct Client {
 #[derive(Debug, Clone)]
 pub struct Session {
     pub id: String,
-    pub client_ids: HashSet<String>,
-    pub client_statuses: HashMap<String, bool>,
     pub game_state: Option<GameState>,
+    pub owner: String,
+    pub client_statuses: HashMap<String, bool>,
 }
 impl Session {
+    fn get_client_count(&self) -> usize {
+        self.client_statuses.len()
+    }
+    fn contains_client(&self, id: &str) -> bool {
+        self.client_statuses.contains_key(id)
+    }
     fn get_client_ids_vec(&self) -> Vec<String> {
-        return self.client_ids.clone().into_iter().collect();
+        self.client_statuses
+            .clone()
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect::<Vec<String>>()
+    }
+    fn remove_client(&mut self, id: &str) {
+        self.client_statuses.remove(id);
+    }
+    fn insert_client(&mut self, id: &str, active_status: bool) {
+        self.client_statuses.insert(id.to_string(), active_status);
+    }
+    fn get_clients_with_active_status(&self, active_status: bool) -> Vec<String> {
+        self.client_statuses
+            .clone()
+            .into_iter()
+            .filter(|(_, status)| status == &active_status)
+            .map(|(id, _)| id)
+            .collect::<Vec<String>>()
     }
     fn set_client_active(&mut self, id: &str) {
-        self.client_statuses.insert(id.to_string(), true);
+        if let Some(_) = self.client_statuses.get(id) {
+            self.client_statuses.insert(id.to_string(), true);
+        } else {
+            println!(
+                "[warning] tried to set active_status of client: {} but id was not found in session",
+                id
+            );
+        }
     }
     fn set_client_inactive(&mut self, id: &str) {
-        self.client_statuses.insert(id.to_string(), false);
+        if let Some(_) = self.client_statuses.get(id) {
+            self.client_statuses.insert(id.to_string(), false);
+        } else {
+            println!(
+                "[warning] tried to set active_status of client: {} but id was not found in session",
+                id
+            );
+        }
     }
 }
 
@@ -109,6 +147,6 @@ async fn main() {
         .parse()
         .expect("PORT must be a number");
 
-    println!("Server start...");
+    println!("[boot] server listening on port::{}", port);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }

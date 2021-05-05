@@ -14,10 +14,14 @@ pub struct ServerEvent {
 #[derive(Serialize_repr)]
 #[repr(u8)]
 pub enum ServerEventCodes {
+  // session_id, client_id, session_client_ids
   ClientJoined = 1,
+  // client_id
   ClientLeft,
   GameStarted,
+  // session_id, session_client_ids
   DataResponse,
+  // session_id, client_id
   InvalidSessionID,
 }
 
@@ -32,6 +36,7 @@ pub struct ClientEvent {
 #[derive(Deserialize_repr)]
 #[repr(u8)]
 pub enum ClientEventCodes {
+  // session_id
   JoinSession = 1,
   CreateSession,
   LeaveSession,

@@ -17,7 +17,7 @@ pub async fn ws_handler(
     let client = clients.read().await.get(&id).cloned();
     match client {
         Some(_) => {
-            println!("duplicate connection request for id: {}", id);
+            println!("[event] duplicate connection request for id: {}", id);
             Err(warp::reject::custom(IDAlreadyTaken))
         }
         None => {

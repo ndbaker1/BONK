@@ -30,7 +30,7 @@ pub async fn client_connection(
     //======================================================
     tokio::task::spawn(client_rcv.forward(client_ws_sender).map(|result| {
         if let Err(e) = result {
-            eprintln!("error sending websocket msg: {}", e);
+            eprintln!("[error] failed to send websocket msg: {}", e);
         }
     }));
     //======================================================
@@ -50,7 +50,6 @@ pub async fn client_connection(
         },
     );
     handle_client_connect(&id, &sessions).await;
-    println!("{} connected", id);
     //======================================================
     // Synchronously wait for messages from the
     // Client Receiver Stream until an error occurs
@@ -62,7 +61,11 @@ pub async fn client_connection(
                 handle_client_msg(&id, msg, &clients, &sessions).await;
             }
             Err(e) => {
-                eprintln!("error receiving ws message for id: {}): {}", id.clone(), e);
+                eprintln!(
+                    "[error] failed to recieve websocket message for id: {} :: error: {}",
+                    id.clone(),
+                    e,
+                );
             }
         }
     }
@@ -72,18 +75,19 @@ pub async fn client_connection(
     //======================================================
     clients.write().await.remove(&id);
     handle_client_disconnect(&id, &sessions).await;
-    println!("{} disconnected", id);
 }
 
-/// Handles messages from a receiving websocket
+/// Handle messages from an open receiving websocket
 async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessions: &SafeSessions) {
-    println!("received message from {}: {:?}", id, msg);
     //======================================================
     // Ensure the Message Parses to String
     //======================================================
     let message = match msg.to_str() {
         Ok(v) => v,
-        Err(_) => return,
+        Err(_) => {
+            eprintln!("[error] failed to convert websocket message into string");
+            return;
+        }
     };
 
     match message {
@@ -91,7 +95,7 @@ async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessio
         // ignore pings
         //======================================================
         "ping" | "ping\n" => {
-            println!("ignoring ping...");
+            println!("[event] ignoring ping...");
         }
         //======================================================
         // Game Session Related Events
@@ -102,15 +106,32 @@ async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessio
     }
 }
 
+/// If a client exists in a session, then set their status to inactive.
+///
+/// If setting inactive status would leave no other active member, remove the session
 async fn handle_client_disconnect(id: &str, sessions: &SafeSessions) {
+    println!("[event] {} disconnected", id);
     if let Some(session_id) = game_engine::get_client_session_id(id, sessions).await {
+        let mut session_empty = false;
+        // remove the client from the sessionand check if the session become empty
         if let Some(session) = sessions.write().await.get_mut(&session_id) {
             session.set_client_inactive(id);
+            session_empty = session.get_clients_with_active_status(true).is_empty();
+        }
+        // remove the session if empty
+        if session_empty {
+            sessions.write().await.remove(&session_id);
+            println!(
+                "[event] removed empty session :: remaining session count: {}",
+                sessions.read().await.len()
+            );
         }
     }
 }
 
+/// If a client exists in a session, then set their status to active
 async fn handle_client_connect(id: &str, sessions: &SafeSessions) {
+    println!("[event] {} connected", id);
     if let Some(session_id) = game_engine::get_client_session_id(id, sessions).await {
         if let Some(session) = sessions.write().await.get_mut(&session_id) {
             session.set_client_active(id);
