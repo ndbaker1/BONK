@@ -1,10 +1,10 @@
 use crate::{
-  data_types::{Client, Clients, Session, Sessions},
+  data_types::{CardColor, CardData, CardDictionary, Client, Session},
   shared_types::{
     CardCode, CharacterCode, ClientEvent, ClientEventCode, EffectCode, GameState, PlayerInfo,
     ServerEvent, ServerEventCode, ServerEventData,
   },
-  SafeClients, SafeSessions,
+  SafeCardDictionary, SafeClients, SafeSessions,
 };
 use nanoid::nanoid;
 use nanorand::{WyRand, RNG};
@@ -12,12 +12,31 @@ use serde_json::from_str;
 use std::collections::HashMap;
 use warp::ws::Message;
 
+// Helper constructors for different kinds of ServerEvents
+impl ServerEvent {
+  fn from_error(event_code: ServerEventCode, message: &str) -> ServerEvent {
+    ServerEvent {
+      event_code,
+      message: Some(message.to_string()),
+      data: None,
+    }
+  }
+  fn from_update(event_code: ServerEventCode, data: ServerEventData) -> ServerEvent {
+    ServerEvent {
+      event_code,
+      data: Some(data),
+      message: None,
+    }
+  }
+}
+
 /// Handle the Client events from a given Session
 pub async fn handle_event(
   client_id: &str,
   event: &str,
   clients: &SafeClients,
   sessions: &SafeSessions,
+  card_dict: &SafeCardDictionary,
 ) {
   //======================================================
   // Deserialize into Session Event object
@@ -40,15 +59,15 @@ pub async fn handle_event(
           println!("[event] relaying state data for client: {}", client_id);
           if let Some(client) = clients.read().await.get(client_id) {
             notify_client(
-              &ServerEvent {
-                event_code: ServerEventCode::DataResponse,
-                data: Some(ServerEventData {
+              &ServerEvent::from_update(
+                ServerEventCode::DataResponse,
+                ServerEventData {
                   session_id: Some(session.id.clone()),
                   client_id: None,
                   session_client_ids: Some(session.get_client_ids_vec()),
                   game_state: session.game_state.clone(),
-                }),
-              },
+                },
+              ),
               client,
             );
           }
@@ -75,15 +94,15 @@ pub async fn handle_event(
 
       if let Some(client) = clients.read().await.get(client_id) {
         notify_client(
-          &ServerEvent {
-            event_code: ServerEventCode::ClientJoined,
-            data: Some(ServerEventData {
+          &ServerEvent::from_update(
+            ServerEventCode::ClientJoined,
+            ServerEventData {
               session_id: Some(session.id.clone()),
               client_id: Some(client_id.to_string()),
               session_client_ids: Some(session.get_client_ids_vec()),
               game_state: None,
-            }),
-          },
+            },
+          ),
           &client,
         );
       }
@@ -115,15 +134,15 @@ pub async fn handle_event(
 
           if let Some(client) = clients.read().await.get(client_id) {
             notify_client(
-              &ServerEvent {
-                event_code: ServerEventCode::InvalidSessionID,
-                data: Some(ServerEventData {
+              &ServerEvent::from_update(
+                ServerEventCode::InvalidSessionID,
+                ServerEventData {
                   session_id: Some(session_id.clone()),
                   client_id: Some(client_id.to_string()),
                   session_client_ids: None,
                   game_state: None,
-                }),
-              },
+                },
+              ),
               &client,
             );
           }
@@ -147,15 +166,15 @@ pub async fn handle_event(
               });
 
               notify_all_clients(
-                &ServerEvent {
-                  event_code: ServerEventCode::GameStarted,
-                  data: Some(ServerEventData {
+                ServerEvent::from_update(
+                  ServerEventCode::GameStarted,
+                  ServerEventData {
                     session_id: Some(session_id),
                     client_id: None,
                     session_client_ids: Some(session.get_client_ids_vec()),
                     game_state: session.game_state.clone(),
-                  }),
-                },
+                  },
+                ),
                 &session,
                 &clients,
               )
@@ -164,10 +183,7 @@ pub async fn handle_event(
             Err(msg) => {
               eprintln!("[error] {}", msg);
               notify_all_clients(
-                &ServerEvent {
-                  event_code: ServerEventCode::GameStarted,
-                  data: None,
-                },
+                ServerEvent::from_error(ServerEventCode::LogicError, msg),
                 &session,
                 &clients,
               )
@@ -185,9 +201,9 @@ pub async fn handle_event(
             game_state.turn_index = (game_state.turn_index + 1) % game_state.turn_orders.len();
 
             notify_all_clients(
-              &ServerEvent {
-                event_code: ServerEventCode::TurnStart,
-                data: Some(ServerEventData {
+              ServerEvent::from_update(
+                ServerEventCode::TurnStart,
+                ServerEventData {
                   session_id: None,
                   client_id: Some(
                     game_state.turn_orders[game_state.turn_index]
@@ -196,8 +212,8 @@ pub async fn handle_event(
                   ),
                   session_client_ids: None,
                   game_state: None,
-                }),
-              },
+                },
+              ),
               &session,
               clients,
             )
@@ -207,32 +223,43 @@ pub async fn handle_event(
       }
     }
     ClientEventCode::PlayCard => {
-      if let Some(card_id) = client_event.card_id {
-        if card_has_targets(card_id) {
-          if let None = client_event.target_ids {
-            eprintln!("No targets given for a card that has targets!");
-            return;
+      // this is some crazy nesting (っ °Д °;)っ
+      if let Some(card_code) = client_event.card_code {
+        println!("[event] a card is being played!");
+        if let Some(session_id) = get_client_session_id(client_id, clients).await {
+          if let Some(session) = sessions.read().await.get(&session_id) {
+            if let Some(game_state) = &session.game_state {
+              if let Some(card_data) = card_dict.get(&card_code) {
+                if let Some(card_targets) = client_event.target_ids {
+                  notify_all_clients(
+                    card_data.apply_effect(client_id, &card_targets, game_state),
+                    session,
+                    clients,
+                  )
+                  .await;
+                }
+              }
+            }
           }
         }
-        println!("A Card is being played!");
       } else {
-        eprintln!("No card_id found for PlayCard Event!");
+        eprintln!("[error] no card_id found for PlayCard Event!");
       }
     }
   }
 }
 
-fn card_has_targets(card_id: CardCode) -> bool {
-  return true; // TODO
+fn card_has_targets(card_code: &CardCode) -> bool {
+  return false; // TODO
 }
 
 /// Send an update to all clients in the session
 ///
 /// Uses a Read lock on clients
-async fn notify_all_clients(game_update: &ServerEvent, session: &Session, clients: &SafeClients) {
+async fn notify_all_clients(game_update: ServerEvent, session: &Session, clients: &SafeClients) {
   for (client_id, _) in &session.client_statuses {
     if let Some(client) = clients.read().await.get(client_id) {
-      notify_client(game_update, client);
+      notify_client(&game_update, client);
     }
   }
 }
@@ -262,15 +289,15 @@ async fn remove_client_from_current_session(
     if let Some(session) = sessions.write().await.get_mut(&session_id) {
       // notify all clients in the sessions that the client will be leaving
       notify_all_clients(
-        &ServerEvent {
-          event_code: ServerEventCode::ClientLeft,
-          data: Some(ServerEventData {
+        ServerEvent::from_update(
+          ServerEventCode::ClientLeft,
+          ServerEventData {
             session_id: None,
             client_id: Some(client_id.to_string()),
             session_client_ids: None,
             game_state: None,
-          }),
-        },
+          },
+        ),
         &session,
         &clients,
       )
@@ -322,15 +349,15 @@ async fn insert_client_into_given_session(
   }
   // notify all clients in the session that the client has joined
   notify_all_clients(
-    &ServerEvent {
-      event_code: ServerEventCode::ClientJoined,
-      data: Some(ServerEventData {
+    ServerEvent::from_update(
+      ServerEventCode::ClientJoined,
+      ServerEventData {
         session_id: Some(session.id.clone()),
         client_id: Some(client_id.to_string()),
         session_client_ids: Some(session.get_client_ids_vec()),
         game_state: None,
-      }),
-    },
+      },
+    ),
     &session,
     &clients,
   )
@@ -351,14 +378,14 @@ fn set_new_session_owner(session: &mut Session, clients: &SafeClients, client_id
   // );
 }
 
-fn get_player_character_mapping(client_vec: &Vec<String>) -> Result<Vec<PlayerInfo>, &str> {
+fn get_player_character_mapping<'a>(client_vec: &Vec<String>) -> Result<Vec<PlayerInfo>, &str> {
   let player_count = client_vec.len();
-  if player_count < 4 {
-    return Err("Cannot Play with less than 4 Players!");
+  if player_count < 4 || player_count > 7 {
+    return Err("Cannot Play with less than 4 Players or More than 7!");
   }
 
-  let mut list: Vec<CharacterCode> = Vec::with_capacity(player_count);
-  list.extend(
+  let mut character_vec: Vec<CharacterCode> = Vec::with_capacity(player_count);
+  character_vec.extend(
     [
       CharacterCode::Renegade,
       CharacterCode::Outlaw,
@@ -372,32 +399,34 @@ fn get_player_character_mapping(client_vec: &Vec<String>) -> Result<Vec<PlayerIn
   // 6 players: Sheriff, 1 Renegade, 3 Outlaws, 1 Deputy
   // 7 players: Sheriff, 1 Renegade, 3 Outlaws, 2 Deputy
   if player_count >= 5 {
-    list.push(CharacterCode::Deputy);
+    character_vec.push(CharacterCode::Deputy);
   }
   if player_count >= 6 {
-    list.push(CharacterCode::Outlaw);
+    character_vec.push(CharacterCode::Outlaw);
   }
   if player_count >= 7 {
-    list.push(CharacterCode::Deputy);
+    character_vec.push(CharacterCode::Deputy);
   }
-  // shuffle
-  WyRand::new().shuffle(&mut list);
+  // random gen for shuffling
+  let mut rand = WyRand::new();
+  // shuffle the order characters
+  rand.shuffle(&mut character_vec);
   // set sheriff as first turn
-  list.insert(0, CharacterCode::Sheriff);
-
-  let mut playerinfo_vec: Vec<PlayerInfo> = client_vec
-    .iter()
-    .map(|id| PlayerInfo {
-      client_id: id.clone(),
-      character_code: CharacterCode::Sheriff,
-    })
-    .collect();
-  // assign the corresponding positions to their characters
-  for (i, character) in list.iter().clone().enumerate() {
-    playerinfo_vec[i].character_code = character.clone();
-  }
-
-  return Ok(playerinfo_vec);
+  character_vec.insert(0, CharacterCode::Sheriff);
+  // create client_vec copy that we will shuffle
+  let mut playerinfo_vec: Vec<String> = client_vec.clone();
+  rand.shuffle(&mut playerinfo_vec);
+  // map the random client_vec to the
+  return Ok(
+    playerinfo_vec
+      .iter()
+      .enumerate()
+      .map(|(i, id)| PlayerInfo {
+        client_id: id.clone(),
+        character_code: character_vec[i].clone(),
+      })
+      .collect::<Vec<PlayerInfo>>(),
+  );
 }
 
 /// Gets a random new session 1 that is 5 characters long
@@ -419,6 +448,33 @@ async fn get_client_session_id(client_id: &str, clients: &SafeClients) -> Option
   }
 }
 
-// fn get_card_dictionary() -> CardDictionary {
-//   return
-// }
+/// A dictionary of cards to their Color and Function
+///
+/// Should always remain read-only in concept,
+/// so a lock is not needed.
+pub fn get_card_dictionary() -> CardDictionary {
+  let mut card_dict = HashMap::new();
+
+  card_dict.insert(
+    CardCode::Bang,
+    CardData {
+      color: CardColor::Brown,
+      effect: |user_id, targets, game_state| {
+        let new_game_state = game_state.clone();
+        if targets.len() != 1 {
+          println!("Wrong number of Targets");
+          return ServerEvent::from_error(ServerEventCode::LogicError, "");
+        }
+        // card logic that would transform the game_state
+        // ...
+        println!("Bang!");
+        return ServerEvent::from_error(
+          ServerEventCode::InvalidSessionID, /* this needs to be updated */
+          "",
+        );
+      },
+    },
+  );
+
+  return card_dict;
+}

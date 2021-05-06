@@ -1,4 +1,6 @@
-use crate::{data_types::Client, game_engine::handle_event, SafeClients, SafeSessions};
+use crate::{
+    data_types::Client, game_engine::handle_event, SafeCardDictionary, SafeClients, SafeSessions,
+};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use warp::ws::{Message, WebSocket};
@@ -9,6 +11,7 @@ pub async fn client_connection(
     id: String,
     clients: SafeClients,
     sessions: SafeSessions,
+    card_dict: SafeCardDictionary,
 ) {
     //======================================================
     // Splits the WebSocket into a Sink + Stream:
@@ -61,7 +64,7 @@ pub async fn client_connection(
         // Check that there was no error actually obtaining the Message
         match result {
             Ok(msg) => {
-                handle_client_msg(&id, msg, &clients, &sessions).await;
+                handle_client_msg(&id, msg, &clients, &sessions, &card_dict).await;
             }
             Err(e) => {
                 eprintln!(
@@ -82,14 +85,20 @@ pub async fn client_connection(
 }
 
 /// Handle messages from an open receiving websocket
-async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessions: &SafeSessions) {
+async fn handle_client_msg(
+    id: &str,
+    msg: Message,
+    clients: &SafeClients,
+    sessions: &SafeSessions,
+    card_dict: &SafeCardDictionary,
+) {
     //======================================================
     // Ensure the Message Parses to String
     //======================================================
     let message = match msg.to_str() {
         Ok(v) => v,
         Err(_) => {
-            eprintln!("[error] failed to convert websocket message into string");
+            eprintln!("[warning] websocket message: '{:?}' was not handled", msg);
             return;
         }
     };
@@ -105,7 +114,7 @@ async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessio
         // Game Session Related Events
         //======================================================
         _ => {
-            handle_event(id, message, clients, sessions).await;
+            handle_event(id, message, clients, sessions, card_dict).await;
         }
     }
 }

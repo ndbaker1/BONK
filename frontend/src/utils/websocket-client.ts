@@ -1,6 +1,6 @@
 import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
-import { ClientEvent, ClientEventCode, ServerEvent, ServerEventCode, ServerEventData } from './shared-types'
+import { CardCode, ClientEvent, ClientEventCode, ServerEvent, ServerEventCode, ServerEventData } from './shared-types'
 
 export class ClientConnection {
   private socket: W3CWebSocket | null = null
@@ -55,10 +55,11 @@ export class ClientConnection {
     return !!this.socket && this.socket.readyState == this.socket.OPEN
   }
 
-  public play_card(card_id: number): void {
+  public play_card(card_code: CardCode, targets: string[]): void {
     this.send_message({
       event_code: ClientEventCode.PlayCard,
-      card_id
+      target_ids: targets,
+      card_code,
     })
   }
 

@@ -1,4 +1,4 @@
-use crate::{ws, Result, SafeClients, SafeSessions};
+use crate::{ws, Result, SafeCardDictionary, SafeClients, SafeSessions};
 use warp::{http::StatusCode, Reply};
 
 /// An Rejection Class for new clients trying to use currently online ID's
@@ -13,6 +13,7 @@ pub async fn ws_handler(
     id: String,
     clients: SafeClients,
     sessions: SafeSessions,
+    card_dict: SafeCardDictionary,
 ) -> Result<impl Reply> {
     let client = clients.read().await.get(&id).cloned();
     match client {
@@ -20,9 +21,9 @@ pub async fn ws_handler(
             println!("[event] duplicate connection request for id: {}", id);
             Err(warp::reject::custom(IDAlreadyTaken))
         }
-        None => {
-            Ok(ws.on_upgrade(move |socket| ws::client_connection(socket, id, clients, sessions)))
-        }
+        None => Ok(ws.on_upgrade(move |socket| {
+            ws::client_connection(socket, id, clients, sessions, card_dict)
+        })),
     }
 }
 

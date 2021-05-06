@@ -15,11 +15,13 @@ type SafeResource<T> = Arc<RwLock<T>>;
 
 type SafeClients = SafeResource<data_types::Clients>;
 type SafeSessions = SafeResource<data_types::Sessions>;
+type SafeCardDictionary = Arc<data_types::CardDictionary>;
 
 #[tokio::main]
 async fn main() {
     let clients: SafeClients = Arc::new(RwLock::new(HashMap::new()));
     let sessions: SafeSessions = Arc::new(RwLock::new(HashMap::new()));
+    let card_dict: SafeCardDictionary = Arc::new(game_engine::get_card_dictionary());
 
     let health_route = warp::path!("health").and_then(handler::health_handler);
 
@@ -29,6 +31,7 @@ async fn main() {
         // pass copies of our references for the client and sessions maps to our handler
         .and(warp::any().map(move || clients.clone()))
         .and(warp::any().map(move || sessions.clone()))
+        .and(warp::any().map(move || card_dict.clone()))
         .and_then(handler::ws_handler);
 
     let routes = health_route.or(ws_route).with(
