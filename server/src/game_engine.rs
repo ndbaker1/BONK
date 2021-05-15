@@ -144,7 +144,7 @@ pub async fn handle_event(
         None => return, // no session was found on a session join request? ¯\(°_o)/¯
       };
 
-      remove_client_from_current_session(client_id, clients, sessions).await;
+      remove_client_from_current_session(client_id, clients, sessions, game_states).await;
 
       if let Some(session) = sessions.write().await.get_mut(&session_id) {
         if let Some(_) = game_states.read().await.get(&session_id) {
@@ -161,7 +161,7 @@ pub async fn handle_event(
       }
     }
     shared_types::ClientEventCode::LeaveSession => {
-      remove_client_from_current_session(client_id, clients, sessions).await;
+      remove_client_from_current_session(client_id, clients, sessions, game_states).await;
     }
     shared_types::ClientEventCode::StartGame => {
       let session_id = match get_client_session_id(client_id, clients).await {
