@@ -1,12 +1,12 @@
 import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
-import { CardCode, ClientEvent, ClientEventCode, ServerEvent, ServerEventCode, ServerEventData } from './shared-types'
+import { Card, ClientEvent, ClientEventCode, ServerEvent, ServerEventCode } from './shared-types'
 
 export class ClientConnection {
   private socket: W3CWebSocket | null = null
   private eventHandler: (event: IMessageEvent) => void
 
-  constructor(callbacks: Record<ServerEventCode, (response: ServerEventData) => void>) {
+  constructor(callbacks: Record<ServerEventCode, (response: ServerEvent) => void>) {
     this.eventHandler = this.create_event_handler(callbacks)
   }
 
@@ -41,10 +41,11 @@ export class ClientConnection {
   //=====================================
   // Receives Messages from the Server
   //=====================================
-  private create_event_handler(callbacks: Record<number, (response: ServerEventData) => void>) {
+  private create_event_handler(callbacks: Record<number, (response: ServerEvent) => void>) {
     return (event: IMessageEvent) => {
       const response: ServerEvent = JSON.parse(event.data as string)
-      callbacks[response.event_code](response.data || {})
+      console.log('event handler:', response)
+      callbacks[response.event_code](response)
     }
   }
 
@@ -55,11 +56,11 @@ export class ClientConnection {
     return !!this.socket && this.socket.readyState == this.socket.OPEN
   }
 
-  public play_card(card_code: CardCode, targets: string[]): void {
+  public play_card(cards: Card[], targets: string[]): void {
     this.send_message({
       event_code: ClientEventCode.PlayCard,
       target_ids: targets,
-      card_code,
+      cards,
     })
   }
 

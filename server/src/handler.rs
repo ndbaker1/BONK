@@ -1,6 +1,8 @@
-use crate::{ws, Result, SafeCardDictionary, SafeClients, SafeSessions};
+use crate::{data_types, ws};
+use warp::Rejection;
 use warp::{http::StatusCode, Reply};
 
+pub type Result<T> = std::result::Result<T, Rejection>;
 /// An Rejection Class for new clients trying to use currently online ID's
 #[derive(Debug)]
 struct IDAlreadyTaken;
@@ -11,9 +13,10 @@ impl warp::reject::Reject for IDAlreadyTaken {}
 pub async fn ws_handler(
     ws: warp::ws::Ws,
     id: String,
-    clients: SafeClients,
-    sessions: SafeSessions,
-    card_dict: SafeCardDictionary,
+    clients: data_types::SafeClients,
+    sessions: data_types::SafeSessions,
+    game_states: data_types::SafeGameStates,
+    game_dict: data_types::SafeGameDictionary,
 ) -> Result<impl Reply> {
     let client = clients.read().await.get(&id).cloned();
     match client {
@@ -22,7 +25,7 @@ pub async fn ws_handler(
             Err(warp::reject::custom(IDAlreadyTaken))
         }
         None => Ok(ws.on_upgrade(move |socket| {
-            ws::client_connection(socket, id, clients, sessions, card_dict)
+            ws::client_connection(socket, id, clients, sessions, game_states, game_dict)
         })),
     }
 }

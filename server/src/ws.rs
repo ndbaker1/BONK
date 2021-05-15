@@ -1,6 +1,4 @@
-use crate::{
-    data_types::Client, game_engine::handle_event, SafeCardDictionary, SafeClients, SafeSessions,
-};
+use crate::{data_types, game_engine, session_types};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use warp::ws::{Message, WebSocket};
@@ -9,9 +7,10 @@ use warp::ws::{Message, WebSocket};
 pub async fn client_connection(
     ws: WebSocket,
     id: String,
-    clients: SafeClients,
-    sessions: SafeSessions,
-    card_dict: SafeCardDictionary,
+    clients: data_types::SafeClients,
+    sessions: data_types::SafeSessions,
+    game_states: data_types::SafeGameStates,
+    game_dict: data_types::SafeGameDictionary,
 ) {
     //======================================================
     // Splits the WebSocket into a Sink + Stream:
@@ -46,7 +45,7 @@ pub async fn client_connection(
     //======================================================
     clients.write().await.insert(
         id.clone(),
-        Client {
+        session_types::Client {
             id: id.clone(),
             sender: Some(client_sender),
             session_id: get_client_session_id(&id, &sessions).await,
@@ -64,7 +63,7 @@ pub async fn client_connection(
         // Check that there was no error actually obtaining the Message
         match result {
             Ok(msg) => {
-                handle_client_msg(&id, msg, &clients, &sessions, &card_dict).await;
+                handle_client_msg(&id, msg, &clients, &sessions, &game_states, &game_dict).await;
             }
             Err(e) => {
                 eprintln!(
@@ -88,9 +87,10 @@ pub async fn client_connection(
 async fn handle_client_msg(
     id: &str,
     msg: Message,
-    clients: &SafeClients,
-    sessions: &SafeSessions,
-    card_dict: &SafeCardDictionary,
+    clients: &data_types::SafeClients,
+    sessions: &data_types::SafeSessions,
+    game_states: &data_types::SafeGameStates,
+    game_dict: &data_types::SafeGameDictionary,
 ) {
     //======================================================
     // Ensure the Message Parses to String
@@ -114,7 +114,7 @@ async fn handle_client_msg(
         // Game Session Related Events
         //======================================================
         _ => {
-            handle_event(id, message, clients, sessions, card_dict).await;
+            game_engine::handle_event(id, message, clients, sessions, game_states, game_dict).await;
         }
     }
 }
@@ -122,7 +122,10 @@ async fn handle_client_msg(
 /// If a client exists in a session, then set their status to inactive.
 ///
 /// If setting inactive status would leave no other active member, remove the session
-async fn handle_client_disconnect(client: &Client, sessions: &SafeSessions) {
+async fn handle_client_disconnect(
+    client: &session_types::Client,
+    sessions: &data_types::SafeSessions,
+) {
     println!("[event] {} disconnected", client.id);
     if let Some(session_id) = &client.session_id {
         let mut session_empty = false;
@@ -143,7 +146,10 @@ async fn handle_client_disconnect(client: &Client, sessions: &SafeSessions) {
 }
 
 /// If a client exists in a session, then set their status to active
-async fn handle_client_connect(client: &Client, sessions: &SafeSessions) {
+async fn handle_client_connect(
+    client: &session_types::Client,
+    sessions: &data_types::SafeSessions,
+) {
     println!("[event] {} connected", client.id);
     if let Some(session_id) = &client.session_id {
         if let Some(session) = sessions.write().await.get_mut(session_id) {
@@ -153,7 +159,10 @@ async fn handle_client_connect(client: &Client, sessions: &SafeSessions) {
 }
 
 /// Gets the SessionID of a client if it exists
-async fn get_client_session_id(client_id: &str, sessions: &SafeSessions) -> Option<String> {
+async fn get_client_session_id(
+    client_id: &str,
+    sessions: &data_types::SafeSessions,
+) -> Option<String> {
     for session in sessions.read().await.values() {
         if session.contains_client(client_id) {
             return Some(session.id.clone());

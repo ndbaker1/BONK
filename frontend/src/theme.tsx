@@ -20,3 +20,4 @@ export default function ThemeWrapper({ element }: { element: JSX.Element }): JSX
     </ThemeProvider>
   )
 }
+
