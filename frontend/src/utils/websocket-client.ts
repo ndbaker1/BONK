@@ -1,12 +1,12 @@
 import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
-import { ClientEvent, ClientEventCodes, ServerEvent, ServerEventCodes } from './event-types'
+import { Card, ClientEvent, ClientEventCode, ServerEvent, ServerEventCode } from './shared-types'
 
 export class ClientConnection {
   private socket: W3CWebSocket | null = null
   private eventHandler: (event: IMessageEvent) => void
 
-  constructor(callbacks: Record<ServerEventCodes, (response: ServerEvent) => void>) {
+  constructor(callbacks: Record<ServerEventCode, (response: ServerEvent) => void>) {
     this.eventHandler = this.create_event_handler(callbacks)
   }
 
@@ -44,6 +44,7 @@ export class ClientConnection {
   private create_event_handler(callbacks: Record<number, (response: ServerEvent) => void>) {
     return (event: IMessageEvent) => {
       const response: ServerEvent = JSON.parse(event.data as string)
+      console.log('event handler:', response)
       callbacks[response.event_code](response)
     }
   }
@@ -55,24 +56,32 @@ export class ClientConnection {
     return !!this.socket && this.socket.readyState == this.socket.OPEN
   }
 
-  public play_card(card_id: number): void {
+  public play_card(cards: Card[], targets: string[]): void {
     this.send_message({
-      event_code: ClientEventCodes.PlayCard,
-      card_id
+      event_code: ClientEventCode.PlayCard,
+      target_ids: targets,
+      cards,
     })
   }
 
   public create_session(): void {
     this.send_message({
-      event_code: ClientEventCodes.CreateSession,
+      event_code: ClientEventCode.CreateSession,
     })
   }
 
   public leave_session(): void {
     this.send_message({
-      event_code: ClientEventCodes.LeaveSession,
+      event_code: ClientEventCode.LeaveSession,
     })
   }
+
+  public startGame(): void {
+    this.send_message({
+      event_code: ClientEventCode.StartGame,
+    })
+  }
+
 
   public join_session(session_id: string, errorCallback?: (err: string) => void): void {
     const error = this.verifySessionID(session_id)
@@ -80,7 +89,7 @@ export class ClientConnection {
       errorCallback && errorCallback(error)
     } else {
       this.send_message({
-        event_code: ClientEventCodes.JoinSession,
+        event_code: ClientEventCode.JoinSession,
         session_id: session_id
       })
     }
@@ -88,7 +97,7 @@ export class ClientConnection {
 
   public getState(): void {
     this.send_message({
-      event_code: ClientEventCodes.DataRequest,
+      event_code: ClientEventCode.DataRequest,
     })
   }
 

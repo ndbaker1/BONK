@@ -9,8 +9,8 @@ from pathlib import Path
 ROOT_DEPTH = 2  # relies on being in directory /shared/scripts
 ROOT_DIR = str(Path(__file__).resolve().parents[ROOT_DEPTH]).replace('\\', '/')
 
-EVENT_TYPES_RUST_PATH = ROOT_DIR + '/server/src/event_types.rs'
-EVENT_TYPES_TYPESCRIPT_PATH = ROOT_DIR + '/frontend/src/utils/event-types.ts'
+EVENT_TYPES_RUST_PATH = ROOT_DIR + '/server/src/shared_types.rs'
+EVENT_TYPES_TYPESCRIPT_PATH = ROOT_DIR + '/frontend/src/utils/shared-types.ts'
 
 
 def convert_rust_syntax_to_ts(rust_string: str):
@@ -33,6 +33,9 @@ def convert_rust_syntax_to_ts(rust_string: str):
         ('String', 'string'),
         ('Vec', 'Array'),
         ('u8', 'number'),
+        ('usize', 'number'),
+        ('HashSet', 'Array'),
+        ('HashMap', 'Record'),
         (';', ''),
     ]
 

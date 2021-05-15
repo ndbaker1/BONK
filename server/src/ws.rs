@@ -1,4 +1,4 @@
-use crate::{game_engine, Client, SafeClients, SafeSessions};
+use crate::{data_types, game_engine, session_types};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use warp::ws::{Message, WebSocket};
@@ -7,8 +7,10 @@ use warp::ws::{Message, WebSocket};
 pub async fn client_connection(
     ws: WebSocket,
     id: String,
-    clients: SafeClients,
-    sessions: SafeSessions,
+    clients: data_types::SafeClients,
+    sessions: data_types::SafeSessions,
+    game_states: data_types::SafeGameStates,
+    game_dict: data_types::SafeGameDictionary,
 ) {
     //======================================================
     // Splits the WebSocket into a Sink + Stream:
@@ -43,13 +45,16 @@ pub async fn client_connection(
     //======================================================
     clients.write().await.insert(
         id.clone(),
-        Client {
+        session_types::Client {
             id: id.clone(),
             sender: Some(client_sender),
-            session_id: None,
+            session_id: get_client_session_id(&id, &sessions).await,
         },
     );
-    handle_client_connect(&id, &sessions).await;
+
+    if let Some(client) = clients.read().await.get(&id) {
+        handle_client_connect(&client, &sessions).await;
+    }
     //======================================================
     // Synchronously wait for messages from the
     // Client Receiver Stream until an error occurs
@@ -58,7 +63,7 @@ pub async fn client_connection(
         // Check that there was no error actually obtaining the Message
         match result {
             Ok(msg) => {
-                handle_client_msg(&id, msg, &clients, &sessions).await;
+                handle_client_msg(&id, msg, &clients, &sessions, &game_states, &game_dict).await;
             }
             Err(e) => {
                 eprintln!(
@@ -73,19 +78,27 @@ pub async fn client_connection(
     // Remove the Client from the Map
     // when they are finished using the socket (or error)
     //======================================================
-    clients.write().await.remove(&id);
-    handle_client_disconnect(&id, &sessions).await;
+    if let Some(client) = clients.write().await.remove(&id) {
+        handle_client_disconnect(&client, &sessions).await;
+    }
 }
 
 /// Handle messages from an open receiving websocket
-async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessions: &SafeSessions) {
+async fn handle_client_msg(
+    id: &str,
+    msg: Message,
+    clients: &data_types::SafeClients,
+    sessions: &data_types::SafeSessions,
+    game_states: &data_types::SafeGameStates,
+    game_dict: &data_types::SafeGameDictionary,
+) {
     //======================================================
     // Ensure the Message Parses to String
     //======================================================
     let message = match msg.to_str() {
         Ok(v) => v,
         Err(_) => {
-            eprintln!("[error] failed to convert websocket message into string");
+            eprintln!("[warning] websocket message: '{:?}' was not handled", msg);
             return;
         }
     };
@@ -101,7 +114,7 @@ async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessio
         // Game Session Related Events
         //======================================================
         _ => {
-            game_engine::handle_event(id, message, clients, sessions).await;
+            game_engine::handle_event(id, message, clients, sessions, game_states, game_dict).await;
         }
     }
 }
@@ -109,18 +122,21 @@ async fn handle_client_msg(id: &str, msg: Message, clients: &SafeClients, sessio
 /// If a client exists in a session, then set their status to inactive.
 ///
 /// If setting inactive status would leave no other active member, remove the session
-async fn handle_client_disconnect(id: &str, sessions: &SafeSessions) {
-    println!("[event] {} disconnected", id);
-    if let Some(session_id) = game_engine::get_client_session_id(id, sessions).await {
+async fn handle_client_disconnect(
+    client: &session_types::Client,
+    sessions: &data_types::SafeSessions,
+) {
+    println!("[event] {} disconnected", client.id);
+    if let Some(session_id) = &client.session_id {
         let mut session_empty = false;
-        // remove the client from the sessionand check if the session become empty
-        if let Some(session) = sessions.write().await.get_mut(&session_id) {
-            session.set_client_inactive(id);
+        // remove the client from the session and check if the session become empty
+        if let Some(session) = sessions.write().await.get_mut(session_id) {
+            session.set_client_active_status(&client.id, false);
             session_empty = session.get_clients_with_active_status(true).is_empty();
         }
         // remove the session if empty
         if session_empty {
-            sessions.write().await.remove(&session_id);
+            sessions.write().await.remove(session_id);
             println!(
                 "[event] removed empty session :: remaining session count: {}",
                 sessions.read().await.len()
@@ -130,11 +146,27 @@ async fn handle_client_disconnect(id: &str, sessions: &SafeSessions) {
 }
 
 /// If a client exists in a session, then set their status to active
-async fn handle_client_connect(id: &str, sessions: &SafeSessions) {
-    println!("[event] {} connected", id);
-    if let Some(session_id) = game_engine::get_client_session_id(id, sessions).await {
-        if let Some(session) = sessions.write().await.get_mut(&session_id) {
-            session.set_client_active(id);
+async fn handle_client_connect(
+    client: &session_types::Client,
+    sessions: &data_types::SafeSessions,
+) {
+    println!("[event] {} connected", client.id);
+    if let Some(session_id) = &client.session_id {
+        if let Some(session) = sessions.write().await.get_mut(session_id) {
+            session.set_client_active_status(&client.id, true);
         }
     }
+}
+
+/// Gets the SessionID of a client if it exists
+async fn get_client_session_id(
+    client_id: &str,
+    sessions: &data_types::SafeSessions,
+) -> Option<String> {
+    for session in sessions.read().await.values() {
+        if session.contains_client(client_id) {
+            return Some(session.id.clone());
+        }
+    }
+    return None;
 }

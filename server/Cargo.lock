@@ -491,6 +491,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "nanorand"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac1378b66f7c93a1c0f8464a19bf47df8795083842e5090f4b7305973d5a22d0"
+
+[[package]]
 name = "net2"
 version = "0.2.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -778,6 +784,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "nanoid",
+ "nanorand",
  "serde",
  "serde_json",
  "serde_repr",
