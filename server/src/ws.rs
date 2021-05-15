@@ -79,7 +79,7 @@ pub async fn client_connection(
     // when they are finished using the socket (or error)
     //======================================================
     if let Some(client) = clients.write().await.remove(&id) {
-        handle_client_disconnect(&client, &sessions).await;
+        handle_client_disconnect(&client, &sessions, &game_states).await;
     }
 }
 
@@ -125,6 +125,7 @@ async fn handle_client_msg(
 async fn handle_client_disconnect(
     client: &session_types::Client,
     sessions: &data_types::SafeSessions,
+    game_states: &data_types::SafeGameStates,
 ) {
     println!("[event] {} disconnected", client.id);
     if let Some(session_id) = &client.session_id {
@@ -136,11 +137,7 @@ async fn handle_client_disconnect(
         }
         // remove the session if empty
         if session_empty {
-            sessions.write().await.remove(session_id);
-            println!(
-                "[event] removed empty session :: remaining session count: {}",
-                sessions.read().await.len()
-            );
+            cleanup_session(session_id, sessions, game_states).await;
         }
     }
 }
@@ -169,4 +166,21 @@ async fn get_client_session_id(
         }
     }
     return None;
+}
+
+/// Remove a sessions and the possible game state that accompanies it
+pub async fn cleanup_session(
+    session_id: &str,
+    sessions: &data_types::SafeSessions,
+    game_states: &data_types::SafeGameStates,
+) {
+    // remove session
+    sessions.write().await.remove(session_id);
+    // remove possible game state
+    game_states.write().await.remove(session_id);
+    // log
+    println!(
+        "[event] removed empty session :: remaining session count: {}",
+        sessions.read().await.len()
+    );
 }

@@ -1,4 +1,4 @@
-use crate::{data_types, game_data, game_types, session_types, shared_types};
+use crate::{data_types, game_data, game_types, session_types, shared_types, ws::cleanup_session};
 use nanoid::nanoid;
 use nanorand::{WyRand, RNG};
 use serde_json::from_str;
@@ -420,6 +420,7 @@ async fn remove_client_from_current_session(
   client_id: &str,
   clients: &data_types::SafeClients,
   sessions: &data_types::SafeSessions,
+  game_states: &data_types::SafeGameStates,
 ) {
   let session_id: String = match get_client_session_id(client_id, clients).await {
     Some(s_id) => s_id,
@@ -460,11 +461,7 @@ async fn remove_client_from_current_session(
   // clean up the session from the map if it is empty
   // * we cannot do this in the scope above because because we are already holding a mutable reference to a session within the map
   if session_empty {
-    sessions.write().await.remove(&session_id);
-    println!(
-      "[event] removed empty session :: remaining session count: {}",
-      sessions.read().await.len()
-    );
+    cleanup_session(&session_id, sessions, game_states).await;
   }
 }
 
