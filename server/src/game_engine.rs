@@ -1,9 +1,12 @@
-use crate::{data_types, game_data, game_types, session_types, shared_types, ws::cleanup_session};
+use crate::{data_types, session_types, shared_types, ws::cleanup_session};
 use nanoid::nanoid;
 use nanorand::{WyRand, RNG};
 use serde_json::from_str;
 use std::collections::{HashMap, HashSet};
 use warp::ws::Message;
+
+pub mod data;
+pub mod types;
 
 // Helper constructors for different kinds of ServerEvents
 impl shared_types::ServerEvent {
@@ -170,13 +173,13 @@ pub async fn handle_event(
       };
 
       if let Some(session) = sessions.read().await.get(&session_id) {
-        match generate_player_data(&session.get_client_ids()) {
-          Ok((player_order, player_data)) => {
-            let game_state = game_types::GameState {
+        match initialize_game_data(&session.get_client_ids()) {
+          Ok((player_order, player_data, deck)) => {
+            let game_state = types::GameState {
               turn_index: 0,
               player_order,
               player_data,
-              deck: game_data::generate_deck(),
+              deck,
               discard: Vec::new(),
               event_stack: Vec::new(),
               response_queue: HashMap::new(),
@@ -189,21 +192,23 @@ pub async fn handle_event(
               .await
               .insert(session_id.clone(), game_state.clone());
 
-            notify_session(
-              &shared_types::ServerEvent::from_event(
-                shared_types::ServerEventCode::GameStarted,
-                shared_types::ServerEventData {
-                  session_id: Some(session_id),
-                  client_id: None,
-                  session_client_ids: Some(session.get_client_ids()),
-                  game_data: Some(game_state.to_game_data()),
-                  player_data: None, // this message needs to be unique for each person in the lobby /// TODO
-                },
-              ),
-              &session,
-              &clients,
-            )
-            .await;
+            for (player, player_data) in game_state.player_data.iter() {
+              if let Some(client) = clients.read().await.get(player) {
+                notify_client(
+                  &shared_types::ServerEvent::from_event(
+                    shared_types::ServerEventCode::GameStarted,
+                    shared_types::ServerEventData {
+                      session_id: None,
+                      client_id: None,
+                      session_client_ids: Some(session.get_client_ids()),
+                      game_data: Some(game_state.to_game_data()),
+                      player_data: Some(player_data.clone()),
+                    },
+                  ),
+                  &client,
+                )
+              }
+            }
           }
           Err(msg) => {
             eprintln!("[error] {}", msg);
@@ -263,7 +268,7 @@ pub async fn handle_event(
         None => return, // this card was not played in an active session?
       };
 
-      let (precheck, effect): (&game_types::CardConditions, &game_types::CardEffect) =
+      let (precheck, effect): (&types::CardConditions, &types::CardEffect) =
         match game_dict.card_dict.get(&cards[0].name) {
           Some(card_data) => (&card_data.preconditions, &card_data.effect),
           None => return, // could not get the primary card from the card dictionary
@@ -344,11 +349,11 @@ pub async fn handle_event(
           // execute the preconditions check
           // if it passes then execute the effect of the card/cards
           //=========================================================
-          let effect: &game_types::CardEffect =
-            match game_dict.card_dict.get(&game_state.card_events[0]) {
-              Some(card_data) => &card_data.effect,
-              None => return, // could not get the primary card from the card dictionary
-            };
+          let effect: &types::CardEffect = match game_dict.card_dict.get(&game_state.card_events[0])
+          {
+            Some(card_data) => &card_data.effect,
+            None => return, // could not get the primary card from the card dictionary
+          };
           let messages: HashMap<String, shared_types::ServerEvent> =
             effect(client_id, &cards, &targets, game_state, game_dict);
 
@@ -515,9 +520,16 @@ fn set_new_session_owner(
   // );
 }
 
-fn generate_player_data(
+fn initialize_game_data(
   client_vec: &Vec<String>,
-) -> Result<(Vec<String>, HashMap<String, shared_types::PlayerData>), &str> {
+) -> Result<
+  (
+    Vec<String>,
+    HashMap<String, shared_types::PlayerData>,
+    Vec<shared_types::Card>,
+  ),
+  &str,
+> {
   let player_count = client_vec.len();
   if player_count < 4 || player_count > 7 {
     return Err("Cannot Play with less than 4 Players or More than 7!");
@@ -533,7 +545,7 @@ fn generate_player_data(
     .iter()
     .cloned(),
   );
-  // 4 players: Sheriff, 1 Renega de, 2 Outlaws
+  // 4 players: Sheriff, 1 Renegade, 2 Outlaws
   // 5 players: Sheriff, 1 Renegade, 2 Outlaws, 1 Deputy
   // 6 players: Sheriff, 1 Renegade, 3 Outlaws, 1 Deputy
   // 7 players: Sheriff, 1 Renegade, 3 Outlaws, 2 Deputy
@@ -556,25 +568,34 @@ fn generate_player_data(
   let mut playerinfo_vec: Vec<String> = client_vec.clone();
   rand.shuffle(&mut playerinfo_vec);
   // map the random client_vec to the
-  return Ok((
-    playerinfo_vec.clone(),
-    playerinfo_vec
-      .iter()
-      .enumerate()
-      .map(|(i, id)| {
-        (
-          id.clone(),
-          shared_types::PlayerData {
-            health: 5, // TODO with character dictionary
-            field: Vec::new(),
-            hand: Vec::new(),
-            character: shared_types::Character::BillyTheKid, // TODO
-            role: role_vec[i].clone(),
-          },
-        )
-      })
-      .collect::<HashMap<String, shared_types::PlayerData>>(),
-  ));
+  let mut player_data = playerinfo_vec
+    .iter()
+    .enumerate()
+    .map(|(i, id)| {
+      (
+        id.clone(),
+        shared_types::PlayerData {
+          health: 5, // TODO with character dictionary
+          field: Vec::new(),
+          hand: Vec::new(),
+          character: shared_types::Character::BillyTheKid, // TODO
+          role: role_vec[i].clone(),
+        },
+      )
+    })
+    .collect::<HashMap<String, shared_types::PlayerData>>();
+
+  let mut deck = data::generate_deck();
+
+  for (_, data) in player_data.iter_mut() {
+    for _ in 0..data.health {
+      if let Some(card) = deck.pop() {
+        data.hand.push(card);
+      }
+    }
+  }
+
+  return Ok((playerinfo_vec, player_data, deck));
 }
 
 /// Gets a random new session 1 that is 5 characters long

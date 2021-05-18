@@ -52,6 +52,7 @@ pub type CardConditions = fn(
   &GameDictionary,
 ) -> Result<(), String>;
 
+///
 pub type CardEffect = fn(
   &str,
   &Vec<shared_types::Card>,
@@ -59,6 +60,8 @@ pub type CardEffect = fn(
   &mut GameState,
   &GameDictionary,
 ) -> HashMap<String, shared_types::ServerEvent>;
+
+/// A function which makes modifications to a GameState as a result of game mechanics
 pub type GameStateUpdate =
   fn(&str, &Vec<shared_types::Card>, &Vec<String>, &mut GameState, &GameDictionary) -> ();
 

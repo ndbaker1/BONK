@@ -1,3 +1,6 @@
+/**
+ * This file contains type defintions which are shared between the front and back end applications
+ */
 
 export type ServerEventData = {
   session_id?: string,

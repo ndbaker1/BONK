@@ -2,7 +2,7 @@ import React from 'react'
 import { ClientConnection } from '../utils/websocket-client'
 import { Button, IconButton, InputAdornment, List, ListItem, ListItemText, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
 import { ServerEventCode, GameData, CardName, ServerEvent, PlayerData, CardSuit, CardRank } from '../utils/shared-types'
-import { FileCopyOutlined } from '@material-ui/icons'
+import { FileCopyOutlined, PinDropSharp } from '@material-ui/icons'
 import { environment } from '../environment'
 
 
@@ -17,7 +17,7 @@ export default function GameComponent(): JSX.Element {
   const clientRef = React.useRef<ClientConnection>(
     new ClientConnection({
       [ServerEventCode.ClientJoined]: (response: ServerEvent) => {
-        if (response?.data?.client_id == userRef.current) {
+        if (response.data?.client_id == userRef.current) {
           setActiveSession(response.data.session_id || '')
           setNotification({
             open: true, text: response.data.session_client_ids?.length == 1
@@ -25,30 +25,31 @@ export default function GameComponent(): JSX.Element {
               : 'Joined Session!'
           })
         } else {
-          setNotification({ open: true, text: 'User ' + response?.data?.client_id + ' Joined!' })
+          setNotification({ open: true, text: 'User ' + response.data?.client_id + ' Joined!' })
         }
-        setUsers(response?.data?.session_client_ids || [])
+        setUsers(response.data?.session_client_ids || [])
       },
       [ServerEventCode.ClientLeft]: (response: ServerEvent) => {
-        if (response?.data?.client_id == userRef.current) {
+        if (response.data?.client_id == userRef.current) {
           setActiveSession('')
           setUsers([])
           setNotification({ open: true, text: 'Left the Session.' })
         } else {
-          setNotification({ open: true, text: 'User ' + response?.data?.client_id + ' Left!' })
+          setNotification({ open: true, text: 'User ' + response.data?.client_id + ' Left!' })
         }
-        setUsers(curUsers => curUsers.filter(id => id != response?.data?.client_id))
+        setUsers(curUsers => curUsers.filter(id => id != response.data?.client_id))
       },
       [ServerEventCode.GameStarted]: (response: ServerEvent) => {
-        setGameData(response?.data?.game_data)
+        setGameData(response.data?.game_data)
+        setPlayerData(response.data?.player_data)
         setNotification({ open: true, text: 'Game is starting!' })
       },
       [ServerEventCode.DataResponse]: (response: ServerEvent) => {
-        console.log(response)
         setActiveSession(response.data?.session_id || '')
         setUsers(response.data?.session_client_ids || [])
         setNotification({ open: true, text: 'Resumed Previous Session!' })
         setGameData(response.data?.game_data)
+        setPlayerData(response.data?.player_data)
       },
       [ServerEventCode.TurnStart]: (response: ServerEvent) => {
         setNotification({ open: true, text: response.data?.session_id + ' is not a valid Session ID' })
@@ -146,22 +147,26 @@ export default function GameComponent(): JSX.Element {
             </Paper>
           )
           : (
-            <Paper elevation={7} style={{ display: 'flex', flexDirection: 'column', margin: 'auto', padding: '2rem' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', margin: 'auto' }}>
-                <TextField id="session-id" label="Session ID" variant="outlined" value={activeSession} />
-                <Button onClick={() => {
-                  clientRef.current.leave_session()
-                  setGameData(undefined)
-                }}>  Leave Session </Button>
+            <div style={{ display: 'flex', margin: 'auto 0' }}>
+              <Paper elevation={7} style={{ display: 'flex', flexDirection: 'column', margin: 'auto', padding: '2rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', margin: 'auto' }}>
+                  <TextField id="session-id" label="Session ID" variant="outlined" value={activeSession} />
+                  <Button onClick={() => {
+                    clientRef.current.leave_session()
+                    setGameData(undefined)
+                  }}>  Leave Session </Button>
 
-                <Button onClick={() => {
-                  clientRef.current.play_card([{ name: CardName.Bang, suit: CardSuit.Clubs, rank: CardRank.A }], [])
-                }}>  Bang </Button>
+                  {/* <Button onClick={() => {
+                    clientRef.current.play_card([{ name: CardName.Bang, suit: CardSuit.Clubs, rank: CardRank.A }], [])
+                  }}> Bang </Button> */}
 
-                <UserList users={users} />
-
-              </div>
-            </Paper>
+                  <UserList users={users} />
+                </div>
+              </Paper>
+              <Paper elevation={7} style={{ display: 'flex', flexDirection: 'column', margin: 'auto', padding: '2rem' }}>
+                <JSONDataViewer data={[playerData, gameData]} />
+              </Paper>
+            </div>
           )
       }
       <Snackbar
@@ -172,7 +177,7 @@ export default function GameComponent(): JSX.Element {
         message={notification.text}
         autoHideDuration={2000}
       />
-    </div>
+    </div >
   )
 }
 
@@ -188,3 +193,16 @@ function UserList({ users }: { users: string[] }) {
   )
 }
 
+function JSONDataViewer({ data }: { data: any[] }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'row' }}>
+      {
+        data.map((d, i) => (
+          <div key={i}>
+            <pre>{JSON.stringify(d, null, 2)}</pre>
+          </div>
+        ))
+      }
+    </div>
+  )
+}

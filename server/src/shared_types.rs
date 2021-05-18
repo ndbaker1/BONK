@@ -1,3 +1,6 @@
+/**
+ * This file contains type defintions which are shared between the front and back end applications
+ */
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
