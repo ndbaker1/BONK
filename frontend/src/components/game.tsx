@@ -1,8 +1,8 @@
 import React from 'react'
 import { ClientConnection } from '../utils/websocket-client'
 import { Button, IconButton, InputAdornment, List, ListItem, ListItemText, Paper, Slide, Snackbar, TextField } from '@material-ui/core'
-import { ServerEventCode, GameData, CardName, ServerEvent, PlayerData, CardSuit, CardRank } from '../utils/shared-types'
-import { FileCopyOutlined, PinDropSharp } from '@material-ui/icons'
+import { ServerEventCode, GameData, ServerEvent, PlayerData } from '../utils/shared-types'
+import { FileCopyOutlined } from '@material-ui/icons'
 import { environment } from '../environment'
 
 

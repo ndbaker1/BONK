@@ -28,6 +28,13 @@ impl shared_types::ServerEvent {
       message: None,
     }
   }
+  pub fn empty(event_code: shared_types::ServerEventCode) -> shared_types::ServerEvent {
+    shared_types::ServerEvent {
+      event_code,
+      data: None,
+      message: None,
+    }
+  }
 }
 
 impl shared_types::PlayerData {
@@ -192,6 +199,7 @@ pub async fn handle_event(
               .await
               .insert(session_id.clone(), game_state.clone());
 
+            // give each player the initial state of the game
             for (player, player_data) in game_state.player_data.iter() {
               if let Some(client) = clients.read().await.get(player) {
                 notify_client(
@@ -209,6 +217,13 @@ pub async fn handle_event(
                 )
               }
             }
+            // signal the turn start
+            notify_session(
+              &shared_types::ServerEvent::empty(shared_types::ServerEventCode::TurnStart),
+              session,
+              clients,
+            )
+            .await;
           }
           Err(msg) => {
             eprintln!("[error] {}", msg);
