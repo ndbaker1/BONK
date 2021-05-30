@@ -17,7 +17,7 @@ export default function LobbyComponent(): JSX.Element {
     <Container>
       <TextField label="UserID" variant="outlined" value={getUser()} />
 
-      <div style={{ display: connection?.isOpen() ? 'flex' : 'none', flexDirection: 'column', margin: 'auto' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', margin: 'auto' }}>
         <Button onClick={() => {
           connection?.disconnect()
           setScreen(Screen.Login)
