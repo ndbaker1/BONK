@@ -16,7 +16,8 @@
     "react": "17.0.2",
     "react-dom": "17.0.2",
     "sass": "^1.32.12",
-    "websocket": "^1.0.34"
+    "websocket": "^1.0.34",
+    "zustand": "^3.5.1"
   },
   "devDependencies": {
     "@types/react": "^17.0.4",
