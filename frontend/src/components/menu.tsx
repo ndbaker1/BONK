@@ -1,5 +1,7 @@
 import React from 'react'
-import { Button, TextField } from '@material-ui/core'
+import { Button, IconButton, InputAdornment, TextField, Tooltip } from '@material-ui/core'
+import ForwardIcon from '@material-ui/icons/Forward'
+import PlayForWorkIcon from '@material-ui/icons/PlayForWork'
 
 import { useSessionData } from '../providers/session.provider'
 import { useServerConnection } from '../providers/server-connecton.provider'
@@ -28,8 +30,35 @@ function JoinSessionComponent({ goBack }: { goBack: () => void }) {
 
   return (
     <>
-      <TextField label="Session ID" variant="outlined" value={inputSession} onChange={event => setInputSession(event.target.value)} />
-      <Button onClick={() => connection?.join_session(inputSession, (error) => log(error))}> Join </Button>
+      <div>
+        <TextField
+          label="Session ID"
+          variant="outlined"
+          value={inputSession}
+          onChange={event => setInputSession(event.target.value)}
+          InputProps={{
+            endAdornment:
+              <InputAdornment position="end">
+                <Tooltip title="Join">
+                  <IconButton
+                    onClick={() => connection?.join_session(inputSession, (error) => log(error))}
+                  > <ForwardIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Pull From Clipboard">
+                  <IconButton
+                    onClick={() => navigator.clipboard.readText()
+                      .then(session => {
+                        setInputSession(session)
+                        connection?.join_session(session, (error) => log(error))
+                      })
+                    }
+                  > <PlayForWorkIcon />
+                  </IconButton>
+                </Tooltip>
+              </InputAdornment>
+          }} />
+      </div>
       <Button onClick={() => goBack()}> Back </Button>
     </>
   )
