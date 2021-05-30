@@ -2,7 +2,8 @@ import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
 import { Card, ClientEvent, ClientEventCode, ServerEvent, ServerEventCode } from './shared-types'
 
-export class ClientConnection {
+
+export class ServerConnection {
   private socket: W3CWebSocket | null = null
   private eventHandler: (event: IMessageEvent) => void
 
@@ -10,22 +11,21 @@ export class ClientConnection {
     this.eventHandler = this.create_event_handler(callbacks)
   }
 
-  public connect(user_id: string, callbacks: Record<'open' | 'error', () => void>): void {
+  public connect(user_id: string, callbacks: {
+    open: () => void
+    close: () => void
+    error: (err: unknown) => void
+  }): void {
     const setupConnection = () => {
       this.socket = new W3CWebSocket(`${environment.ws_or_wss}://${environment.apiDomain}/ws/${user_id}`)
-      this.socket.onopen = () => {
-        console.log('connected to websocket!', this.socket)
-        callbacks.open()
-      }
       this.socket.onmessage = this.eventHandler
-      this.socket.onerror = (err) => {
-        console.log('socket error!', err)
-        callbacks.error()
-      }
+      this.socket.onopen = () => callbacks.open()
+      this.socket.onclose = () => callbacks.close()
+      this.socket.onerror = err => callbacks.error(err)
     }
     if (this.socket && this.socket.readyState != this.socket.CLOSED) {
       this.socket.onclose = () => {
-        console.log('closed and reconnecting')
+        callbacks.close()
         setupConnection()
       }
       this.socket.close()
@@ -44,7 +44,7 @@ export class ClientConnection {
   private create_event_handler(callbacks: Record<number, (response: ServerEvent) => void>) {
     return (event: IMessageEvent) => {
       const response: ServerEvent = JSON.parse(event.data as string)
-      console.log('event handler:', response)
+      // console.log('event handler:', response)
       callbacks[response.event_code](response)
     }
   }
@@ -95,7 +95,7 @@ export class ClientConnection {
     }
   }
 
-  public getState(): void {
+  public fetchSession(): void {
     this.send_message({
       event_code: ClientEventCode.DataRequest,
     })
@@ -120,4 +120,3 @@ export class ClientConnection {
     return errors.join('')
   }
 }
-

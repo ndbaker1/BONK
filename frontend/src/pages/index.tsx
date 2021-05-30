@@ -1,6 +1,6 @@
 import React from 'react'
 import { Helmet } from 'react-helmet'
-import GameComponent from '../components/game'
+import AppComponent from '../components/app'
 
 export default function Home(): JSX.Element {
   return (
@@ -10,7 +10,7 @@ export default function Home(): JSX.Element {
         <title>BONK</title>
         <link rel="icon" href="./favicon.ico" />
       </Helmet>
-      <GameComponent />
+      <AppComponent />
     </div>
   )
 }
