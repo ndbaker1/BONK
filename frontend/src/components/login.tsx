@@ -4,29 +4,31 @@ import { Button, Paper, TextField } from '@material-ui/core'
 
 import { useSessionData } from '../providers/session.provider'
 import { Screen, useScreen } from '../providers/screen.provider'
+import { useNotification } from '../providers/notification.provider'
 
 export default function LoginComponent(): JSX.Element {
 
   const { setScreen } = useScreen()
   const { connection } = useServerConnection()
-  const { setUser, log, getUser } = useSessionData()
+  const { setUser, getUser } = useSessionData()
+  const { setNotification } = useNotification()
 
   return (
     <Paper elevation={7} style={{ display: 'flex', flexDirection: 'column', margin: 'auto', padding: '2rem' }}>
       <TextField label="UserID" variant="outlined" value={getUser()} onChange={(event) => setUser(event.target.value)} />
       <Button onClick={() => {
-        log('Connecting...')
+        setNotification('Connecting...')
         connection?.connect(getUser(), {
           open: () => {
             setScreen(Screen.Menu)
-            log('Connected..')
+            setNotification('Connected.')
             connection.fetchSession()
           },
           error: () => {
-            log('Error: ID may already be taken.')
+            setNotification('Error: ID may already be taken.')
           },
           close: () => {
-            log('Disconnected..')
+            setNotification('Disconnected.')
             setScreen(Screen.Login)
           },
         })

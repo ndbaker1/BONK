@@ -7,6 +7,7 @@ import { environment } from '../environment'
 import { useSessionData } from '../providers/session.provider'
 import { Screen, useScreen } from '../providers/screen.provider'
 import { useServerConnection } from '../providers/server-connecton.provider'
+import { useNotification } from '../providers/notification.provider'
 
 import LobbyComponent from './lobby'
 import LoginComponent from './login'
@@ -19,8 +20,7 @@ export default function AppComponent(): JSX.Element {
   const { getScreen, setScreen } = useScreen()
   const { setConnection } = useServerConnection()
   const { setSession, getUser, getUsers, setUsers } = useSessionData()
-
-  const [notification, setNotification] = React.useState('')
+  const { notification, setNotification } = useNotification()
 
   // run once on init
   React.useEffect(() => {

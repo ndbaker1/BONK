@@ -5,6 +5,7 @@ import { Accessor, Mutator } from './provider'
 
 type GameDataStore = {
   data: GameData
+  // & { logs: string[] }
 
   getCardEvents: Accessor<GameData['card_events']>
   getDiscard: Accessor<GameData['discard']>
@@ -15,6 +16,9 @@ type GameDataStore = {
   setDiscard: Mutator<GameData['discard']>
   setPlayerOrder: Mutator<GameData['player_order']>
   setTurnIndex: Mutator<GameData['turn_index']>
+
+  // getLogs: Accessor<string[]>
+  // log: Mutator<string>
 }
 
 export const useGameData = create<GameDataStore>((set, get) => ({
@@ -22,7 +26,8 @@ export const useGameData = create<GameDataStore>((set, get) => ({
     card_events: [],
     discard: [],
     player_order: [],
-    turn_index: 0
+    turn_index: 0,
+    // logs: []
   },
 
   getCardEvents: () => get().data.card_events,
@@ -34,5 +39,12 @@ export const useGameData = create<GameDataStore>((set, get) => ({
   setDiscard: discard => set(state => { state.data.discard = discard }),
   setPlayerOrder: playerOrder => set(state => { state.data.player_order = playerOrder }),
   setTurnIndex: turnIndex => set(state => { state.data.turn_index = turnIndex }),
+
+
+  // getLogs: () => get().data.logs,
+  // log: log => set(state => {
+  //   console.log(log)
+  //   state.data.logs = [...state.data.logs, log]
+  // }),
 }))
 

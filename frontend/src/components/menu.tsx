@@ -7,6 +7,7 @@ import { useSessionData } from '../providers/session.provider'
 import { useServerConnection } from '../providers/server-connecton.provider'
 
 import Container from './container'
+import { useNotification } from '../providers/notification.provider'
 
 
 export default function MenuComponent(): JSX.Element {
@@ -24,7 +25,7 @@ export default function MenuComponent(): JSX.Element {
 
 function JoinSessionComponent({ goBack }: { goBack: () => void }) {
   const { connection } = useServerConnection()
-  const { log } = useSessionData()
+  const { setNotification } = useNotification()
 
   const [inputSession, setInputSession] = React.useState('')
 
@@ -41,7 +42,7 @@ function JoinSessionComponent({ goBack }: { goBack: () => void }) {
               <InputAdornment position="end">
                 <Tooltip title="Join">
                   <IconButton
-                    onClick={() => connection?.join_session(inputSession, (error) => log(error))}
+                    onClick={() => connection?.join_session(inputSession, (error) => setNotification(error))}
                   > <ForwardIcon />
                   </IconButton>
                 </Tooltip>
@@ -50,7 +51,7 @@ function JoinSessionComponent({ goBack }: { goBack: () => void }) {
                     onClick={() => navigator.clipboard.readText()
                       .then(session => {
                         setInputSession(session)
-                        connection?.join_session(session, (error) => log(error))
+                        connection?.join_session(session, (error) => setNotification(error))
                       })
                     }
                   > <PlayForWorkIcon />

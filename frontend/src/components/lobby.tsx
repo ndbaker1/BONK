@@ -2,15 +2,18 @@ import React from 'react'
 import { Button, IconButton, InputAdornment, List, ListItem, ListItemText, TextField, Tooltip } from '@material-ui/core'
 import { FileCopyOutlined } from '@material-ui/icons'
 
+import Container from './container'
+
 import { useSessionData } from '../providers/session.provider'
 import { useServerConnection } from '../providers/server-connecton.provider'
-import Container from './container'
 import { Screen, useScreen } from '../providers/screen.provider'
+import { useNotification } from '../providers/notification.provider'
 
 export default function LobbyComponent(): JSX.Element {
 
   const { connection } = useServerConnection()
-  const { log, getSession, getUser, getUsers } = useSessionData()
+  const { setNotification } = useNotification()
+  const { getSession, getUser, getUsers } = useSessionData()
   const { setScreen } = useScreen()
 
   return (
@@ -35,7 +38,7 @@ export default function LobbyComponent(): JSX.Element {
                   <IconButton
                     onClick={() =>
                       navigator.clipboard.writeText(getSession())
-                        .then(() => log('Copied SessionID: ' + getSession()))
+                        .then(() => setNotification('Copied SessionID: ' + getSession()))
                     }
                   > <FileCopyOutlined />
                   </IconButton>
