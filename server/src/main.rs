@@ -5,9 +5,7 @@ use tokio::sync::RwLock;
 use warp::Filter;
 
 mod data_types;
-mod game_data;
 mod game_engine;
-mod game_types;
 mod handler;
 mod session_types;
 mod shared_types;
@@ -18,9 +16,9 @@ async fn main() {
     let clients: data_types::SafeClients = Arc::new(RwLock::new(HashMap::new()));
     let sessions: data_types::SafeSessions = Arc::new(RwLock::new(HashMap::new()));
     let game_states: data_types::SafeGameStates = Arc::new(RwLock::new(HashMap::new()));
-    let game_dict: data_types::SafeGameDictionary = Arc::new(game_types::GameDictionary {
-        card_dict: game_data::get_card_dictionary(),
-        character_dict: game_data::get_character_dictionary(),
+    let game_dict: data_types::SafeGameDictionary = Arc::new(game_engine::types::GameDictionary {
+        card_dict: game_engine::data::get_card_dictionary(),
+        character_dict: game_engine::data::get_character_dictionary(),
     });
 
     let health_route = warp::path!("health").and_then(handler::health_handler);

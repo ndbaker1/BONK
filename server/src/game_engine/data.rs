@@ -1,7 +1,7 @@
-use crate::{game_engine, game_types, shared_types};
+use crate::{game_engine, shared_types};
 use std::collections::HashMap;
 
-impl game_types::GameState {
+impl game_engine::types::GameState {
   /// Removes cards from the hand of a player in the game
   fn remove_cards_from_hand(&mut self, player: &str, cards: &Vec<shared_types::Card>) {
     if let Some(player_data) = self.player_data.get_mut(player) {
@@ -12,9 +12,9 @@ impl game_types::GameState {
   /// This could be a card response or a character ability response.
   fn trigger_responses(
     &mut self,
-    triggers: &Vec<game_types::EventTrigger>,
+    triggers: &Vec<game_engine::types::EventTrigger>,
     targets: &Vec<String>,
-    game_dict: &game_types::GameDictionary,
+    game_dict: &game_engine::types::GameDictionary,
   ) -> HashMap<String, shared_types::ResponseData> {
     let mut responses: HashMap<String, shared_types::ResponseData> = HashMap::new();
     // check what the possible actions of anyone in the lobby are when a card is played or effect is activated
@@ -83,26 +83,29 @@ impl game_types::GameState {
 /// Creates a starting deck of Cards for the game
 pub fn generate_deck() -> Vec<shared_types::Card> {
   let mut deck: Vec<shared_types::Card> = Vec::with_capacity(80);
-  deck.push(shared_types::Card {
-    name: shared_types::CardName::Bang,
-    suit: shared_types::CardSuit::Clubs,
-    rank: shared_types::CardRank::N1,
-  });
-  deck.push(shared_types::Card {
-    name: shared_types::CardName::Bang,
-    suit: shared_types::CardSuit::Diamonds,
-    rank: shared_types::CardRank::N2,
-  });
-  deck.push(shared_types::Card {
-    name: shared_types::CardName::Missed,
-    suit: shared_types::CardSuit::Hearts,
-    rank: shared_types::CardRank::N1,
-  });
-  deck.push(shared_types::Card {
-    name: shared_types::CardName::Missed,
-    suit: shared_types::CardSuit::Spades,
-    rank: shared_types::CardRank::N2,
-  });
+  // compying same cards atm
+  for _ in 0..20 {
+    deck.push(shared_types::Card {
+      name: shared_types::CardName::Bang,
+      suit: shared_types::CardSuit::Clubs,
+      rank: shared_types::CardRank::N1,
+    });
+    deck.push(shared_types::Card {
+      name: shared_types::CardName::Bang,
+      suit: shared_types::CardSuit::Diamonds,
+      rank: shared_types::CardRank::N2,
+    });
+    deck.push(shared_types::Card {
+      name: shared_types::CardName::Missed,
+      suit: shared_types::CardSuit::Hearts,
+      rank: shared_types::CardRank::N1,
+    });
+    deck.push(shared_types::Card {
+      name: shared_types::CardName::Missed,
+      suit: shared_types::CardSuit::Spades,
+      rank: shared_types::CardRank::N2,
+    });
+  }
   game_engine::shuffle_deck(&mut deck);
   return deck;
 }
@@ -111,15 +114,15 @@ pub fn generate_deck() -> Vec<shared_types::Card> {
 ///
 /// Should always remain read-only in concept,
 /// so a lock is not needed.
-pub fn get_card_dictionary() -> game_types::CardDictionary {
+pub fn get_card_dictionary() -> game_engine::types::CardDictionary {
   let mut card_dict = HashMap::new();
   //===============================
   // Bang
   //===============================
   card_dict.insert(
     shared_types::CardName::Bang,
-    game_types::CardData {
-      color: game_types::CardColor::Brown,
+    game_engine::types::CardData {
+      color: game_engine::types::CardColor::Brown,
       triggers: vec![],
       preconditions: |user_id, cards, targets, game_state, card_dict| {
         match game_state.player_data.get(user_id) {
@@ -136,8 +139,11 @@ pub fn get_card_dictionary() -> game_types::CardDictionary {
         return Ok(());
       },
       effect: |user_id, cards, targets, game_state, game_dict| {
-        let responses =
-          game_state.trigger_responses(&vec![game_types::EventTrigger::Damage], targets, game_dict);
+        let responses = game_state.trigger_responses(
+          &vec![game_engine::types::EventTrigger::Damage],
+          targets,
+          game_dict,
+        );
 
         game_state.remove_cards_from_hand(user_id, cards);
 
@@ -166,9 +172,9 @@ pub fn get_card_dictionary() -> game_types::CardDictionary {
   //===============================
   card_dict.insert(
     shared_types::CardName::Hatchet,
-    game_types::CardData {
-      color: game_types::CardColor::Brown,
-      triggers: vec![game_types::EventTrigger::Damage],
+    game_engine::types::CardData {
+      color: game_engine::types::CardColor::Brown,
+      triggers: vec![game_engine::types::EventTrigger::Damage],
       preconditions: |user_id, cards, targets, game_state, card_dict| {
         match game_state.player_data.get(user_id) {
           Some(player_data) => {
@@ -192,13 +198,13 @@ pub fn get_card_dictionary() -> game_types::CardDictionary {
   return card_dict;
 }
 
-pub fn get_character_dictionary() -> game_types::CharacterDictionary {
+pub fn get_character_dictionary() -> game_engine::types::CharacterDictionary {
   let mut character_dict = HashMap::new();
   character_dict.insert(
     shared_types::Character::BillyTheKid,
-    game_types::CharacterData {
+    game_engine::types::CharacterData {
       hp: 5,
-      triggers: vec![game_types::EventTrigger::Damage],
+      triggers: vec![game_engine::types::EventTrigger::Damage],
       effect_optional: true,
       effect: String::from(""),
     },
