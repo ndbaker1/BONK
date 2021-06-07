@@ -60,7 +60,6 @@ pub async fn handle_event(
   clients: &data_types::SafeClients,
   sessions: &data_types::SafeSessions,
   game_states: &data_types::SafeGameStates,
-  game_dict: &data_types::SafeGameDictionary,
 ) {
   //======================================================
   // Deserialize into Session Event object
@@ -283,11 +282,9 @@ pub async fn handle_event(
         None => return, // this card was not played in an active session?
       };
 
+      let card_data: &types::CardData = data::get_card_data(&cards[0].name);
       let (precheck, effect): (&types::CardConditions, &types::CardEffect) =
-        match game_dict.card_dict.get(&cards[0].name) {
-          Some(card_data) => (&card_data.preconditions, &card_data.effect),
-          None => return, // could not get the primary card from the card dictionary
-        };
+        (&card_data.preconditions, &card_data.effect);
 
       if let Some(game_state) = game_states.write().await.get_mut(&session_id) {
         //===========================================
@@ -308,8 +305,8 @@ pub async fn handle_event(
           // if it passes then execute the effect of the card/cards
           //=========================================================
           let messages: HashMap<String, shared_types::ServerEvent> =
-            match precheck(client_id, &cards, &targets, game_state, game_dict) {
-              Ok(_) => effect(client_id, &cards, &targets, game_state, game_dict),
+            match precheck(client_id, &cards, &targets, game_state) {
+              Ok(_) => effect(client_id, &cards, &targets, game_state),
               Err(e) => return,
             };
 
@@ -364,13 +361,9 @@ pub async fn handle_event(
           // execute the preconditions check
           // if it passes then execute the effect of the card/cards
           //=========================================================
-          let effect: &types::CardEffect = match game_dict.card_dict.get(&game_state.card_events[0])
-          {
-            Some(card_data) => &card_data.effect,
-            None => return, // could not get the primary card from the card dictionary
-          };
+          let effect: &types::CardEffect = &data::get_card_data(&game_state.card_events[0]).effect;
           let messages: HashMap<String, shared_types::ServerEvent> =
-            effect(client_id, &cards, &targets, game_state, game_dict);
+            effect(client_id, &cards, &targets, game_state);
 
           // relay any updates or errors from the cards being played to those in the lobby.
           for (client_id, message) in messages.iter() {

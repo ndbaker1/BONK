@@ -16,10 +16,6 @@ async fn main() {
     let clients: data_types::SafeClients = Arc::new(RwLock::new(HashMap::new()));
     let sessions: data_types::SafeSessions = Arc::new(RwLock::new(HashMap::new()));
     let game_states: data_types::SafeGameStates = Arc::new(RwLock::new(HashMap::new()));
-    let game_dict: data_types::SafeGameDictionary = Arc::new(game_engine::types::GameDictionary {
-        card_dict: game_engine::data::get_card_dictionary(),
-        character_dict: game_engine::data::get_character_dictionary(),
-    });
 
     let health_route = warp::path!("health").and_then(handler::health_handler);
 
@@ -30,7 +26,6 @@ async fn main() {
         .and(warp::any().map(move || clients.clone()))
         .and(warp::any().map(move || sessions.clone()))
         .and(warp::any().map(move || game_states.clone()))
-        .and(warp::any().map(move || game_dict.clone()))
         .and_then(handler::ws_handler);
 
     let routes = health_route.or(ws_route).with(

@@ -27,30 +27,18 @@ impl GameState {
   }
 }
 
-pub type CharacterDictionary = HashMap<shared_types::Character, CharacterData>;
-pub type CardDictionary = HashMap<shared_types::CardName, CardData>;
-pub struct GameDictionary {
-  pub card_dict: CardDictionary,
-  pub character_dict: CharacterDictionary,
-}
-
-pub type CharacterEffect = String; /* i have no dam clue wat type this is */
+pub type CharacterEffect = &'static str; /* i have no dam clue wat type this is */
 pub struct CharacterData {
   pub hp: u8,
-  pub triggers: Vec<EventTrigger>,
+  pub triggers: &'static [EventTrigger],
   pub effect: CharacterEffect,
   pub effect_optional: bool,
 }
 
 /// Card Preconditions should be game-logic based.
 /// Do not worry about the player having the Cards or any state-based logic
-pub type CardConditions = fn(
-  &str,
-  &Vec<shared_types::Card>,
-  &Vec<String>,
-  &mut GameState,
-  &GameDictionary,
-) -> Result<(), String>;
+pub type CardConditions =
+  fn(&str, &Vec<shared_types::Card>, &Vec<String>, &mut GameState) -> Result<(), String>;
 
 ///
 pub type CardEffect = fn(
@@ -58,17 +46,15 @@ pub type CardEffect = fn(
   &Vec<shared_types::Card>,
   &Vec<String>,
   &mut GameState,
-  &GameDictionary,
 ) -> HashMap<String, shared_types::ServerEvent>;
 
 /// A function which makes modifications to a GameState as a result of game mechanics
-pub type GameStateUpdate =
-  fn(&str, &Vec<shared_types::Card>, &Vec<String>, &mut GameState, &GameDictionary) -> ();
+pub type GameStateUpdate = fn(&str, &Vec<shared_types::Card>, &Vec<String>, &mut GameState) -> ();
 
 pub struct CardData {
   pub color: CardColor,
 
-  pub triggers: Vec<EventTrigger>,
+  pub triggers: &'static [EventTrigger],
   pub preconditions: CardConditions,
   pub effect: CardEffect,
   pub update: GameStateUpdate,
@@ -84,4 +70,10 @@ pub enum CardColor {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EventTrigger {
   Damage = 1,
+  Draw,
+  Bang,
+  Heal,
+  Target,
+  EndOfTurnDiscard,
+  EffectDiscard,
 }

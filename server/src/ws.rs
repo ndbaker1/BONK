@@ -10,7 +10,6 @@ pub async fn client_connection(
     clients: data_types::SafeClients,
     sessions: data_types::SafeSessions,
     game_states: data_types::SafeGameStates,
-    game_dict: data_types::SafeGameDictionary,
 ) {
     //======================================================
     // Splits the WebSocket into a Sink + Stream:
@@ -63,7 +62,7 @@ pub async fn client_connection(
         // Check that there was no error actually obtaining the Message
         match result {
             Ok(msg) => {
-                handle_client_msg(&id, msg, &clients, &sessions, &game_states, &game_dict).await;
+                handle_client_msg(&id, msg, &clients, &sessions, &game_states).await;
             }
             Err(e) => {
                 eprintln!(
@@ -90,7 +89,6 @@ async fn handle_client_msg(
     clients: &data_types::SafeClients,
     sessions: &data_types::SafeSessions,
     game_states: &data_types::SafeGameStates,
-    game_dict: &data_types::SafeGameDictionary,
 ) {
     //======================================================
     // Ensure the Message Parses to String
@@ -114,7 +112,7 @@ async fn handle_client_msg(
         // Game Session Related Events
         //======================================================
         _ => {
-            game_engine::handle_event(id, message, clients, sessions, game_states, game_dict).await;
+            game_engine::handle_event(id, message, clients, sessions, game_states).await;
         }
     }
 }

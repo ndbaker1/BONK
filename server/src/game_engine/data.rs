@@ -14,58 +14,58 @@ impl game_engine::types::GameState {
     &mut self,
     triggers: &Vec<game_engine::types::EventTrigger>,
     targets: &Vec<String>,
-    game_dict: &game_engine::types::GameDictionary,
   ) -> HashMap<String, shared_types::ResponseData> {
     let mut responses: HashMap<String, shared_types::ResponseData> = HashMap::new();
     // check what the possible actions of anyone in the lobby are when a card is played or effect is activated
     // ex.. A targets B for Bang!, B has 2 missed cards and C can also choose to play a helping card to save B
 
     for (player_id, player_data) in self.player_data.iter() {
-      let is_target = targets.contains(player_id);
+      // check if current players being checked is one of the targets
+      let is_target: bool = targets.contains(player_id);
+
       // Search Character abilities that may activate
-      if let Some(character_data) = game_dict.character_dict.get(&player_data.character) {
-        // if the player is one of the targets
-        if triggers
-          .iter()
-          .any(|trigger| character_data.triggers.contains(trigger))
-        {
-          if is_target {
-            if character_data.effect_optional {
-              // let response_data: &mut shared_types::ResponseData = responses
-              //   .entry(player_id.clone())
-              //   .or_insert(shared_types::ResponseData {
-              //     cards: Vec::new(),
-              //     characters: Vec::new(),
-              //   });
-              // response_data.characters.push(character_data.)
-            } else {
-              // character_data.effect activate
-            }
+      let character_data = get_character_data(&player_data.character);
+      // if the player is one of the targets
+      if triggers
+        .iter()
+        .any(|trigger| character_data.triggers.contains(trigger))
+      {
+        if is_target {
+          if character_data.effect_optional {
+            // let response_data: &mut shared_types::ResponseData = responses
+            //   .entry(player_id.clone())
+            //   .or_insert(shared_types::ResponseData {
+            //     cards: Vec::new(),
+            //     characters: Vec::new(),
+            //   });
+            // response_data.characters.push(character_data.)
           } else {
-            // player not target code
+            // character_data.effect activate
           }
+        } else {
+          // player not target code
         }
       }
+
       // Search Character Hand & Field for possible Card responses
       for card in player_data.card_iter() {
-        if let Some(card_data) = game_dict.card_dict.get(&card.name) {
-          if is_target {
-            if triggers
-              .iter()
-              .any(|trigger| card_data.triggers.contains(trigger))
-            {
-              let response_data: &mut shared_types::ResponseData = responses
-                .entry(player_id.clone())
-                .or_insert(shared_types::ResponseData {
-                  cards: Vec::new(),
-                  characters: Vec::new(),
-                });
-              response_data.cards.push(card.name.clone());
-            }
-          } else {
-            // player not target code
-            // another player could play a card to assist or counter a player's move
+        let card_data = get_card_data(&card.name);
+        if is_target {
+          if triggers
+            .iter()
+            .any(|trigger| card_data.triggers.contains(trigger))
+          {
+            let response_data: &mut shared_types::ResponseData = responses
+              .entry(player_id.clone())
+              .or_insert(shared_types::ResponseData {
+                cards: Vec::new(),
+                characters: Vec::new(),
+              });
+            response_data.cards.push(card.name.clone());
           }
+        } else {
+          // player not target code
+          // another player could play a card to assist or counter a player's move
         }
       }
     }
@@ -83,7 +83,7 @@ impl game_engine::types::GameState {
 /// Creates a starting deck of Cards for the game
 pub fn generate_deck() -> Vec<shared_types::Card> {
   let mut deck: Vec<shared_types::Card> = Vec::with_capacity(80);
-  // compying same cards atm
+  // copying same cards atm
   for _ in 0..20 {
     deck.push(shared_types::Card {
       name: shared_types::CardName::Bang,
@@ -110,106 +110,20 @@ pub fn generate_deck() -> Vec<shared_types::Card> {
   return deck;
 }
 
-/// A dictionary of cards to their Color and Function
-///
-/// Should always remain read-only in concept,
-/// so a lock is not needed.
-pub fn get_card_dictionary() -> game_engine::types::CardDictionary {
-  let mut card_dict = HashMap::new();
-  //===============================
-  // Bang
-  //===============================
-  card_dict.insert(
-    shared_types::CardName::Bang,
-    game_engine::types::CardData {
-      color: game_engine::types::CardColor::Brown,
-      triggers: vec![],
-      preconditions: |user_id, cards, targets, game_state, card_dict| {
-        match game_state.player_data.get(user_id) {
-          Some(player_data) => {
-            if get_player_distance(&targets[0]) > player_range() {
-              return Err(String::from("Target out of range."));
-            }
-          }
-          None => return Err(String::from("Player does not have the cards")),
-        }
-        if targets.len() != 1 {
-          return Err(String::from("Wrong number of Targets for a Bang"));
-        }
-        return Ok(());
-      },
-      effect: |user_id, cards, targets, game_state, game_dict| {
-        let responses = game_state.trigger_responses(
-          &vec![game_engine::types::EventTrigger::Damage],
-          targets,
-          game_dict,
-        );
-
-        game_state.remove_cards_from_hand(user_id, cards);
-
-        if responses.is_empty() {
-          for (card_name, targets) in game_state.event_stack.iter() {
-            // dsd
-          }
-        } else {
-          // set the current card for this action
-          game_state.card_events.push(cards[0].name.clone());
-          // set the expectng responses
-          game_state.trigger_queue = responses.clone();
-          game_state.response_queue = responses;
-        }
-        return HashMap::new();
-      },
-      update: |user_id, cards, targets, game_state, game_dict| {
-        if let Some(player) = game_state.player_data.get_mut(&targets[0]) {
-          player.health -= 1;
-        }
-      },
-    },
-  );
-  //===============================
-  // Hatchet
-  //===============================
-  card_dict.insert(
-    shared_types::CardName::Hatchet,
-    game_engine::types::CardData {
-      color: game_engine::types::CardColor::Brown,
-      triggers: vec![game_engine::types::EventTrigger::Damage],
-      preconditions: |user_id, cards, targets, game_state, card_dict| {
-        match game_state.player_data.get(user_id) {
-          Some(player_data) => {
-            if targets.len() != 1 {
-              return Err(String::from("Wrong number of Targets"));
-            } else if get_player_distance(&targets[0]) > 1 {
-              return Err(String::from("Target out of range."));
-            }
-          }
-          None => return Err(String::from("Player does not have the cards")),
-        }
-
-        return Ok(());
-      },
-      effect: |user_id, cards, targets, game_state, card_dict| {
-        return HashMap::new();
-      },
-      update: |user_id, cards, targets, game_state, game_dict| {},
-    },
-  );
-  return card_dict;
+pub fn get_card_data(card_name: &shared_types::CardName) -> &'static game_engine::types::CardData {
+  match card_name {
+    shared_types::CardName::Bang => &BANG_CARD_DATA,
+    shared_types::CardName::Missed => &MISSED_CARD_DATA,
+    _ => &BANG_CARD_DATA,
+  }
 }
 
-pub fn get_character_dictionary() -> game_engine::types::CharacterDictionary {
-  let mut character_dict = HashMap::new();
-  character_dict.insert(
-    shared_types::Character::BillyTheKid,
-    game_engine::types::CharacterData {
-      hp: 5,
-      triggers: vec![game_engine::types::EventTrigger::Damage],
-      effect_optional: true,
-      effect: String::from(""),
-    },
-  );
-  return character_dict;
+pub fn get_character_data(
+  character: &shared_types::Character,
+) -> &'static game_engine::types::CharacterData {
+  match character {
+    shared_types::Character::BillyTheKid => &BILLYTHEKID_CHARACTER_DATA,
+  }
 }
 
 // HELPER FUNCTIONS TO BE MOVED TO AN APPROPRIATE LOCATION LATER
@@ -221,3 +135,76 @@ fn get_player_distance(_player: &String) -> u8 {
 fn player_range() -> u8 {
   return 1;
 }
+
+// static game data
+
+// character data
+
+static BILLYTHEKID_CHARACTER_DATA: game_engine::types::CharacterData =
+  game_engine::types::CharacterData {
+    hp: 5,
+    triggers: &[game_engine::types::EventTrigger::Damage],
+    effect_optional: true,
+    effect: "wat is this type, idk ",
+  };
+
+// card data
+
+static BANG_CARD_DATA: game_engine::types::CardData = game_engine::types::CardData {
+  color: game_engine::types::CardColor::Brown,
+  triggers: &[],
+  preconditions: |user_id, _, targets, game_state| {
+    match game_state.player_data.get(user_id) {
+      Some(player_data) => {
+        if get_player_distance(&targets[0]) > player_range() {
+          return Err(String::from("Target out of range."));
+        }
+      }
+      None => return Err(String::from("Player does not have the cards")),
+    }
+    if targets.len() != 1 {
+      return Err(String::from("Wrong number of Targets for a Bang"));
+    }
+    return Ok(());
+  },
+  effect: |user_id, cards, targets, game_state| {
+    let responses =
+      game_state.trigger_responses(&vec![game_engine::types::EventTrigger::Damage], targets);
+
+    game_state.remove_cards_from_hand(user_id, cards);
+
+    if responses.is_empty() {
+      for (card_name, targets) in game_state.event_stack.iter() {
+        // dsd
+      }
+    } else {
+      // set the current card for this action
+      game_state.card_events.push(cards[0].name.clone());
+      // set the expectng responses
+      game_state.trigger_queue = responses.clone();
+      game_state.response_queue = responses;
+    }
+    return HashMap::new();
+  },
+  update: |user_id, cards, targets, game_state| {
+    if let Some(player) = game_state.player_data.get_mut(&targets[0]) {
+      player.health -= 1;
+    }
+  },
+};
+
+static MISSED_CARD_DATA: game_engine::types::CardData = game_engine::types::CardData {
+  color: game_engine::types::CardColor::Brown,
+  triggers: &[game_engine::types::EventTrigger::Damage],
+  preconditions: |user_id, _, targets, game_state| {
+    // the user has to currently be targetted by a bang!
+    return Ok(());
+  },
+  effect: |user_id, cards, targets, game_state| {
+    // negates the band effect, meaning the player takes no damage
+    return HashMap::new();
+  },
+  update: |user_id, cards, targets, game_state| {
+    // there is no effect on the game state for responding to a bang with a missed
+  },
+};

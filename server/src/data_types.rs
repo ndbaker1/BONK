@@ -7,4 +7,3 @@ pub type SafeResource<T> = Arc<RwLock<T>>;
 pub type SafeClients = SafeResource<session_types::Clients>;
 pub type SafeSessions = SafeResource<session_types::Sessions>;
 pub type SafeGameStates = SafeResource<game_engine::types::GameStates>;
-pub type SafeGameDictionary = Arc<game_engine::types::GameDictionary>;
