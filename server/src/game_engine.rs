@@ -182,6 +182,7 @@ pub async fn handle_event(
         match initialize_game_data(&session.get_client_ids()) {
           Ok((player_order, player_data, deck)) => {
             let game_state = types::GameState {
+              round: 0,
               turn_index: 0,
               player_order,
               player_data,

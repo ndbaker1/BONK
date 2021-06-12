@@ -5,6 +5,7 @@ pub type GameStates = HashMap<String, GameState>;
 
 #[derive(Clone)]
 pub struct GameState {
+  pub round: usize,
   pub turn_index: usize,
   pub player_order: Vec<String>,
   pub player_data: HashMap<String, shared_types::PlayerData>,
@@ -19,6 +20,7 @@ pub struct GameState {
 impl GameState {
   pub fn to_game_data(&self) -> shared_types::GameData {
     shared_types::GameData {
+      round: self.round,
       turn_index: self.turn_index,
       card_events: self.card_events.clone(),
       discard: self.discard.clone(),

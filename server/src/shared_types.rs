@@ -24,6 +24,7 @@ pub struct PlayerData {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct GameData {
+  pub round: usize,
   pub turn_index: usize,
   pub player_order: Vec<String>,
   pub card_events: Vec<CardName>,
@@ -35,62 +36,6 @@ pub struct ServerEvent {
   pub event_code: ServerEventCode,
   pub message: Option<String>,
   pub data: Option<ServerEventData>,
-}
-
-#[derive(Serialize_repr, Debug, Clone, Eq, Hash, PartialEq)]
-#[repr(u8)]
-pub enum EffectCode {
-  GeneralStore = 1,
-  None,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Eq, Hash, PartialEq)]
-pub struct Card {
-  pub name: CardName,
-  pub suit: CardSuit,
-  pub rank: CardRank,
-}
-
-#[derive(Deserialize_repr, Serialize_repr, Debug, Clone, Eq, Hash, PartialEq)]
-#[repr(u8)]
-pub enum CardName {
-  // Brown Cards
-  Bang = 1,
-  Hatchet,
-  Missed,
-  // Blue Cards
-  Barrel,
-  Dynamite,
-  // Green Cards
-  PonyExpress,
-}
-
-#[derive(Deserialize_repr, Serialize_repr, Debug, Clone, Eq, Hash, PartialEq)]
-#[repr(u8)]
-pub enum CardSuit {
-  Clubs = 1,
-  Diamonds,
-  Hearts,
-  Spades,
-}
-
-#[derive(Deserialize_repr, Serialize_repr, Debug, Clone, Eq, Hash, PartialEq)]
-#[repr(u8)]
-pub enum CardRank {
-  N1 = 1,
-  N2,
-  N3,
-  N4,
-  N5,
-  N6,
-  N7,
-  N8,
-  N9,
-  N10,
-  J,
-  Q,
-  K,
-  A,
 }
 
 #[derive(Serialize_repr)]
@@ -130,6 +75,70 @@ pub enum ClientEventCode {
   StateResponse,
 }
 
+#[derive(Serialize, Debug, Clone, Eq, Hash, PartialEq)]
+pub struct ResponseData {
+  pub cards: Vec<CardName>,
+  pub characters: Vec<Character>,
+}
+
+#[derive(Serialize_repr, Debug, Clone, Eq, Hash, PartialEq)]
+#[repr(u8)]
+pub enum EffectCode {
+  GeneralStore = 1,
+  None,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, Hash, PartialEq)]
+pub struct Card {
+  pub name: CardName,
+  pub suit: CardSuit,
+  pub rank: CardRank,
+}
+
+#[derive(Deserialize_repr, Serialize_repr, Debug, Clone, Eq, Hash, PartialEq)]
+#[repr(u8)]
+pub enum CardName {
+  // Brown Cards
+  Bang = 1,
+  Hatchet,
+  Indians,
+  Missed,
+  Beer,
+  // Blue Cards
+  Barrel,
+  Dynamite,
+  // Green Cards
+  PonyExpress,
+}
+
+#[derive(Deserialize_repr, Serialize_repr, Debug, Clone, Eq, Hash, PartialEq)]
+#[repr(u8)]
+pub enum CardSuit {
+  Clubs = 1,
+  Diamonds,
+  Hearts,
+  Spades,
+}
+
+#[derive(Deserialize_repr, Serialize_repr, Debug, Clone, Eq, Hash, PartialEq)]
+#[repr(u8)]
+pub enum CardRank {
+  N1 = 1,
+  N2,
+  N3,
+  N4,
+  N5,
+  N6,
+  N7,
+  N8,
+  N9,
+  N10,
+  J,
+  Q,
+  K,
+  A,
+}
+
 #[derive(Serialize_repr, Debug, Clone, Eq, Hash, PartialEq)]
 #[repr(u8)]
 pub enum Role {
@@ -143,10 +152,4 @@ pub enum Role {
 #[repr(u8)]
 pub enum Character {
   BillyTheKid = 1,
-}
-
-#[derive(Serialize, Debug, Clone, Eq, Hash, PartialEq)]
-pub struct ResponseData {
-  pub cards: Vec<CardName>,
-  pub characters: Vec<Character>,
 }

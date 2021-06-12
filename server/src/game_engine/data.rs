@@ -114,6 +114,7 @@ pub fn get_card_data(card_name: &shared_types::CardName) -> &'static game_engine
   match card_name {
     shared_types::CardName::Bang => &BANG_CARD_DATA,
     shared_types::CardName::Missed => &MISSED_CARD_DATA,
+    shared_types::CardName::Indians => &INDIANS_CARD_DATA,
     _ => &BANG_CARD_DATA,
   }
 }
@@ -136,6 +137,14 @@ fn player_range() -> u8 {
   return 1;
 }
 
+impl game_engine::types::GameState {
+  fn is_grace_period(&self) -> bool {
+    self.round == 0
+  }
+}
+
+const GRACE_PERIOD_MSG: &str = "Cannot damage other players during the first round.";
+
 // static game data
 
 // character data
@@ -154,6 +163,9 @@ static BANG_CARD_DATA: game_engine::types::CardData = game_engine::types::CardDa
   color: game_engine::types::CardColor::Brown,
   triggers: &[],
   preconditions: |user_id, _, targets, game_state| {
+    if game_state.is_grace_period() {
+      return Err(String::from(GRACE_PERIOD_MSG));
+    }
     match game_state.player_data.get(user_id) {
       Some(player_data) => {
         if get_player_distance(&targets[0]) > player_range() {
@@ -197,6 +209,25 @@ static MISSED_CARD_DATA: game_engine::types::CardData = game_engine::types::Card
   color: game_engine::types::CardColor::Brown,
   triggers: &[game_engine::types::EventTrigger::Damage],
   preconditions: |user_id, _, targets, game_state| {
+    // the user has to currently be targetted by a bang!
+    return Ok(());
+  },
+  effect: |user_id, cards, targets, game_state| {
+    // negates the band effect, meaning the player takes no damage
+    return HashMap::new();
+  },
+  update: |user_id, cards, targets, game_state| {
+    // there is no effect on the game state for responding to a bang with a missed
+  },
+};
+
+static INDIANS_CARD_DATA: game_engine::types::CardData = game_engine::types::CardData {
+  color: game_engine::types::CardColor::Brown,
+  triggers: &[game_engine::types::EventTrigger::Damage],
+  preconditions: |user_id, _, targets, game_state| {
+    if game_state.is_grace_period() {
+      return Err(String::from(GRACE_PERIOD_MSG));
+    }
     // the user has to currently be targetted by a bang!
     return Ok(());
   },
