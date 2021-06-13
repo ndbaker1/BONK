@@ -293,7 +293,11 @@ pub async fn handle_event(
         // are actually in the hands of the player
         //===========================================
         if match game_state.player_data.get(client_id) {
-          Some(player_data) => player_data.card_iter().all(|card| cards.contains(card)),
+          Some(player_data) => cards.iter().all(|played_card| {
+            player_data
+              .card_iter()
+              .any(|player_card| player_card == played_card)
+          }),
           None => false,
         } {
           // default to an empty vector for cards whose effects do not concern targets
@@ -350,7 +354,11 @@ pub async fn handle_event(
         // are actually in the hands of the player
         //===========================================
         if match game_state.player_data.get(client_id) {
-          Some(player_data) => player_data.card_iter().all(|card| cards.contains(card)),
+          Some(player_data) => cards.iter().all(|played_card| {
+            player_data
+              .card_iter()
+              .any(|player_card| player_card == played_card)
+          }),
           None => false,
         } {
           // default to an empty vector for cards whose effects do not concern targets
@@ -415,6 +423,7 @@ async fn notify_clients(
 
 /// Send an update to single clients
 fn notify_client(game_update: &shared_types::ServerEvent, client: &session_types::Client) {
+  // println!("[emit] {:?} to {:?}", game_update, client);
   let sender = match &client.sender {
     Some(s) => s,
     None => return eprintln!("[error] sender was lost for client: {}", client.id),
