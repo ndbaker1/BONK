@@ -2,30 +2,31 @@ import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
 import { Card, ClientEvent, ClientEventCode, ServerEvent, ServerEventCode } from './shared-types'
 
-
+type ServerEventCallbacks = Partial<Record<ServerEventCode, ServerEventCallback>>
+type ServerEventCallback = (response: ServerEvent) => void
 export class ServerConnection {
   private socket: W3CWebSocket | null = null
   private eventHandler: (event: IMessageEvent) => void
 
-  constructor(callbacks: Record<ServerEventCode, (response: ServerEvent) => void>) {
+  constructor(callbacks: ServerEventCallbacks) {
     this.eventHandler = this.create_event_handler(callbacks)
   }
 
   public connect(user_id: string, callbacks: {
-    open: () => void
-    close: () => void
-    error: (err: unknown) => void
+    open?: () => void
+    close?: () => void
+    error?: (err: unknown) => void
   }): void {
     const setupConnection = () => {
       this.socket = new W3CWebSocket(`${environment.ws_or_wss}://${environment.apiDomain}/ws/${user_id}`)
       this.socket.onmessage = this.eventHandler
-      this.socket.onopen = () => callbacks.open()
-      this.socket.onclose = () => callbacks.close()
-      this.socket.onerror = err => callbacks.error(err)
+      this.socket.onopen = () => (callbacks.open ?? (() => 0))()
+      this.socket.onclose = () => (callbacks.close ?? (() => 0))()
+      this.socket.onerror = err => (callbacks.error ?? (() => 0))(err)
     }
     if (this.socket && this.socket.readyState != this.socket.CLOSED) {
       this.socket.onclose = () => {
-        callbacks.close()
+        (callbacks.close ?? (() => 0))()
         setupConnection()
       }
       this.socket.close()
@@ -41,11 +42,14 @@ export class ServerConnection {
   //=====================================
   // Receives Messages from the Server
   //=====================================
-  private create_event_handler(callbacks: Record<number, (response: ServerEvent) => void>) {
+  private create_event_handler(callbacks: ServerEventCallbacks) {
     return (event: IMessageEvent) => {
       const response: ServerEvent = JSON.parse(event.data as string)
       // console.log('event handler:', response)
-      callbacks[response.event_code](response)
+      const callback: ServerEventCallback | undefined = callbacks[response.event_code]
+
+      if (callback)
+        callback(response)
     }
   }
 
