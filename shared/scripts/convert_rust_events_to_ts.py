@@ -36,6 +36,7 @@ def convert_rust_syntax_to_ts(rust_string: str):
         ('usize', 'number'),
         ('HashSet', 'Array'),
         ('HashMap', 'Record'),
+        ('bool', 'boolean'),
         (';', ''),
     ]
 
