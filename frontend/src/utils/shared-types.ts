@@ -3,33 +3,33 @@
  */
 
 export type ServerEventData = {
-   session_id?: string,
-   client_id?: string,
-   session_client_ids?: Array<string>,
-   game_data?: GameData,
-   player_data?: PlayerData,
+  session_id?: string,
+  client_id?: string,
+  session_client_ids?: Array<string>,
+  game_data?: GameData,
+  player_data?: PlayerData,
 }
 
 export type PlayerData = {
-   health: number,
-   hand: Array<Card>,
-   field: Array<Card>,
-   character: Character,
-   role: Role,
+  health: number,
+  hand: Array<Card>,
+  field: Array<Card>,
+  character: Character,
+  role: Role,
+  alive: boolean,
 }
 
 export type GameData = {
-   round: number,
-   turn_index: number,
-   player_order: Array<string>,
-   card_events: Array<CardName>,
-   discard: Array<Card>,
+  round: number,
+  turn_index: number,
+  player_order: Array<string>,
+  discard: Array<Card>,
 }
 
 export type ServerEvent = {
-   event_code: ServerEventCode,
-   message?: string,
-   data?: ServerEventData,
+  event_code: ServerEventCode,
+  message?: string,
+  data?: ServerEventData,
 }
 
 export enum ServerEventCode {
@@ -46,10 +46,10 @@ export enum ServerEventCode {
 }
 
 export type ClientEvent = {
-   event_code: ClientEventCode,
-   target_ids?: Array<string>,
-   cards?: Array<Card>,
-   session_id?: string,
+  event_code: ClientEventCode,
+  target_ids?: Array<string>,
+  cards?: Array<Card>,
+  session_id?: string,
 }
 
 export enum ClientEventCode {
@@ -65,8 +65,8 @@ export enum ClientEventCode {
 }
 
 export type ResponseData = {
-   cards: Array<CardName>,
-   characters: Array<Character>,
+  cards: Array<CardName>,
+  characters: Array<Character>,
 }
 
 export enum EffectCode {
@@ -75,9 +75,9 @@ export enum EffectCode {
 }
 
 export type Card = {
-   name: CardName,
-   suit: CardSuit,
-   rank: CardRank,
+  name: CardName,
+  suit: CardSuit,
+  rank: CardRank,
 }
 
 export enum CardName {
