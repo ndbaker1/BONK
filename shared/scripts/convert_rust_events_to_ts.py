@@ -33,6 +33,7 @@ def convert_rust_syntax_to_ts(rust_string: str):
         ('String', 'string'),
         ('Vec', 'Array'),
         ('u8', 'number'),
+        ('i8', 'number'),
         ('usize', 'number'),
         ('HashSet', 'Array'),
         ('HashMap', 'Record'),

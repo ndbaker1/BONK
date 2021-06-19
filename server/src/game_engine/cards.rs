@@ -264,11 +264,7 @@ static BANG_CARD_DATA: game_engine::types::CardData = game_engine::types::CardDa
         if let Some(player) = game_state.player_data.get_mut(user_id) {
             game_state.event_state_stack.pop();
 
-            if player.health < 1 {
-                player.health = 0;
-            } else {
-                player.health -= 1;
-            }
+            player.health -= 1;
 
             if player.health <= 0 {
                 player.alive = false;
@@ -343,14 +339,24 @@ static INDIANS_CARD_DATA: game_engine::types::CardData = game_engine::types::Car
     update: |user_id, cards, targets, game_state| {
         let mut messages = HashMap::new();
         if !cards.is_empty() {
-            if cards[0].name != CardName::Bang {
+            if cards[0].name == CardName::Bang {
+                if let Some((card_name, players, _)) = game_state.event_state_stack.first() {
+                    if !get_card_data(card_name)
+                        .triggers
+                        .into_iter()
+                        .any(|trigger| MISSED_CARD_DATA.triggers.contains(trigger))
+                    {
+                    } else if players.len() != 1 || players[0] != user_id {
+                    } else {
+                    }
+                }
+            } else {
                 messages.insert(
                     user_id.to_string(),
                     ServerEvent::builder(shared_types::ServerEventCode::LogicError)
                         .message("Cannot play non-Bang card for Indians.")
                         .build(),
                 );
-            } else {
             }
         } else {
         }

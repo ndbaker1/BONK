@@ -15,7 +15,7 @@ pub struct ServerEventData {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct PlayerData {
-    pub health: u8,
+    pub health: i8,
     pub hand: Vec<Card>,
     pub field: Vec<Card>,
     pub character: Character,
