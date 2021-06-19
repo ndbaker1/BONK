@@ -16,11 +16,21 @@ pub fn generate_deck() -> Vec<shared_types::Card> {
             suit: shared_types::CardSuit::Hearts,
             rank: shared_types::CardRank::N1,
         });
-        // deck.push(shared_types::Card {
-        //     name: shared_types::CardName::Indians,
-        //     suit: shared_types::CardSuit::Diamonds,
-        //     rank: shared_types::CardRank::N1,
-        // });
+        deck.push(shared_types::Card {
+            name: shared_types::CardName::Indians,
+            suit: shared_types::CardSuit::Diamonds,
+            rank: shared_types::CardRank::N1,
+        });
+        deck.push(shared_types::Card {
+            name: shared_types::CardName::GeneralStore,
+            suit: shared_types::CardSuit::Diamonds,
+            rank: shared_types::CardRank::N1,
+        });
+        deck.push(shared_types::Card {
+            name: shared_types::CardName::Duel,
+            suit: shared_types::CardSuit::Diamonds,
+            rank: shared_types::CardRank::N1,
+        });
     }
     shuffle_deck(&mut deck);
     return deck;

@@ -1,15 +1,17 @@
 use crate::{
     game_engine,
     game_engine::characters,
-    shared_types::{self, CardName, ServerEventData},
+    shared_types::{self, CardName, ServerEvent, ServerEventData},
 };
-use std::{cmp::min, collections::HashMap, vec};
+use std::{cmp::min, collections::HashMap};
 
 pub fn get_card_data(card_name: &shared_types::CardName) -> &'static game_engine::types::CardData {
     match card_name {
         shared_types::CardName::Bang => &BANG_CARD_DATA,
         shared_types::CardName::Missed => &MISSED_CARD_DATA,
         shared_types::CardName::Indians => &INDIANS_CARD_DATA,
+        shared_types::CardName::Duel => &DUEL_CARD_DATA,
+        shared_types::CardName::GeneralStore => &GENERAL_STORE_CARD_DATA,
         _ => &BANG_CARD_DATA,
     }
 }
@@ -143,7 +145,7 @@ impl game_engine::types::GameState {
 static BANG_CARD_DATA: game_engine::types::CardData = game_engine::types::CardData {
     color: game_engine::types::CardColor::Brown,
     triggers: &[],
-    preconditions: |user_id, _, targets, game_state| {
+    requirements: |user_id, _, targets, game_state| {
         if game_state.is_grace_period() {
             return Err(String::from(GRACE_PERIOD_MSG));
         }
@@ -165,20 +167,21 @@ static BANG_CARD_DATA: game_engine::types::CardData = game_engine::types::CardDa
         if targets.len() != 1 {
             return Err(String::from("Wrong number of Targets for a Bang"));
         }
-        return Ok(());
+        Ok(())
     },
-    effect: |user_id, cards, targets, game_state| {
-        let responses =
-            game_state.trigger_responses(&vec![game_engine::types::EventTrigger::Damage], targets);
+    initiate: |user_id, cards, targets, game_state| {
+        // skip handling the user response suggestions for now
+        // let responses =
+        //     game_state.trigger_responses(&vec![game_engine::types::EventTrigger::Damage], targets);
 
         game_state.remove_cards_from_hand(user_id, cards);
 
         game_state
             .event_state_stack
-            .push((cards[0].name.clone(), targets.clone()));
+            .push((cards[0].name.clone(), targets.clone(), Vec::new()));
 
         // designate responses if effect involves others, otherwise relaying display data
-        return game_state
+        game_state
             .player_order
             .iter()
             .map(|player| {
@@ -217,14 +220,16 @@ static BANG_CARD_DATA: game_engine::types::CardData = game_engine::types::CardDa
                     },
                 )
             }))
-            .collect::<HashMap<String, shared_types::ServerEvent>>();
+            .collect::<HashMap<String, shared_types::ServerEvent>>()
     },
     update: |user_id, cards, targets, game_state| {
         // check if the card is played to reponse
         if !cards.is_empty() {
             let card_data = get_card_data(&cards[0].name);
-            match (card_data.preconditions)(user_id, &Vec::new(), &Vec::new(), game_state) {
+            match (card_data.requirements)(user_id, &Vec::new(), &Vec::new(), game_state) {
                 Ok(_) => {
+                    game_state.remove_cards_from_hand(user_id, cards);
+
                     game_state.event_state_stack.pop();
 
                     return game_state
@@ -269,29 +274,19 @@ static BANG_CARD_DATA: game_engine::types::CardData = game_engine::types::CardDa
                 player.alive = false;
             }
 
-            return game_state
+            let damage_announcement_event_builder =
+                ServerEvent::builder(shared_types::ServerEventCode::LogicError)
+                    .message(&format!("{} takes 1 damage!", user_id))
+                    .data(ServerEventData::builder().client_id(user_id).build());
+
+            game_state
                 .player_order
                 .iter()
-                .map(|player| {
-                    (
-                        player.clone(),
-                        shared_types::ServerEvent {
-                            event_code: shared_types::ServerEventCode::LogicError, // should be damage later
-                            message: Some(String::from(format!("{} takes 1 damage!", user_id))),
-                            data: Some(ServerEventData {
-                                client_id: Some(String::from(user_id)),
-                                game_data: None,
-                                player_data: None,
-                                session_client_ids: None,
-                                session_id: None,
-                            }),
-                        },
-                    )
-                })
-                .collect::<HashMap<String, shared_types::ServerEvent>>();
+                .map(|player| (player.clone(), damage_announcement_event_builder.build()))
+                .collect::<HashMap<String, shared_types::ServerEvent>>()
         } else {
             eprintln!("[error] Player not found in game.");
-            return HashMap::new();
+            HashMap::new()
         }
     },
 };
@@ -299,48 +294,100 @@ static BANG_CARD_DATA: game_engine::types::CardData = game_engine::types::CardDa
 static MISSED_CARD_DATA: game_engine::types::CardData = game_engine::types::CardData {
     color: game_engine::types::CardColor::Brown,
     triggers: &[game_engine::types::EventTrigger::Damage],
-    preconditions: |user_id, _, _, game_state| {
+    requirements: |user_id, _, _, game_state| {
         // the user has to currently be targetted by a bang!
-        if let Some((card_name, players)) = game_state.event_state_stack.first() {
-            if card_name != &CardName::Bang {
-                return Err(String::from("Bang is not the current State."));
-            }
-            if !players.contains(&String::from(user_id)) {
-                return Err(String::from(
+        if let Some((card_name, players, _)) = game_state.event_state_stack.first() {
+            if !get_card_data(card_name)
+                .triggers
+                .into_iter()
+                .any(|trigger| MISSED_CARD_DATA.triggers.contains(trigger))
+            {
+                Err(String::from("Nothing to play missed for."))
+            } else if players.len() != 1 || players[0] != user_id {
+                Err(String::from(
                     "Player is not in the list of expected responses.",
-                ));
+                ))
+            } else {
+                Ok(())
             }
-            return Ok(());
         } else {
-            return Err(String::from("No State found for response."));
+            Err(String::from("No State found for responding with a Missed."))
         }
     },
-    effect: |user_id, cards, targets, game_state| {
-        // negates the band effect, meaning the player takes no damage
-        return HashMap::new();
-    },
-    update: |user_id, cards, targets, game_state| {
-        // there is no effect on the game state for responding to a bang with a missed
-        return HashMap::new();
-    },
+    initiate: |_, _, _, _| HashMap::new(),
+    update: |_, _, _, _| HashMap::new(),
 };
 
 static INDIANS_CARD_DATA: game_engine::types::CardData = game_engine::types::CardData {
     color: game_engine::types::CardColor::Brown,
-    triggers: &[game_engine::types::EventTrigger::Damage],
-    preconditions: |user_id, _, targets, game_state| {
+    triggers: &[],
+    requirements: |_, _, _, game_state| {
         if game_state.is_grace_period() {
-            return Err(String::from(GRACE_PERIOD_MSG));
+            Err(String::from(GRACE_PERIOD_MSG))
+        } else {
+            Ok(())
         }
-        // the user has to currently be targetted by a bang!
-        return Ok(());
     },
-    effect: |user_id, cards, targets, game_state| {
+    initiate: |user_id, cards, _, game_state| {
+        game_state.remove_cards_from_hand(user_id, cards);
+
+        let mut players = game_state.player_order.clone();
+        players.retain(|player| player != user_id);
+
+        game_state
+            .event_state_stack
+            .push((cards[0].name.clone(), players, Vec::new()));
+
+        HashMap::new()
+    },
+    update: |user_id, cards, targets, game_state| {
+        let mut messages = HashMap::new();
+        if !cards.is_empty() {
+            if cards[0].name != CardName::Bang {
+                messages.insert(
+                    user_id.to_string(),
+                    ServerEvent::builder(shared_types::ServerEventCode::LogicError)
+                        .message("Cannot play non-Bang card for Indians.")
+                        .build(),
+                );
+            } else {
+            }
+        } else {
+        }
+        messages
+    },
+};
+
+static DUEL_CARD_DATA: game_engine::types::CardData = game_engine::types::CardData {
+    color: game_engine::types::CardColor::Brown,
+    triggers: &[],
+    requirements: |user_id, _, targets, game_state| {
+        if game_state.is_grace_period() {
+            Err(String::from(GRACE_PERIOD_MSG))
+        } else {
+            Ok(())
+        }
+    },
+    initiate: |user_id, cards, targets, game_state| {
         // negates the band effect, meaning the player takes no damage
-        return HashMap::new();
+        HashMap::new()
     },
     update: |user_id, cards, targets, game_state| {
         // there is no effect on the game state for responding to a bang with a missed
-        return HashMap::new();
+        HashMap::new()
+    },
+};
+
+static GENERAL_STORE_CARD_DATA: game_engine::types::CardData = game_engine::types::CardData {
+    color: game_engine::types::CardColor::Brown,
+    triggers: &[],
+    requirements: |user_id, _, targets, game_state| Ok(()),
+    initiate: |user_id, cards, targets, game_state| {
+        // negates the band effect, meaning the player takes no damage
+        HashMap::new()
+    },
+    update: |user_id, cards, targets, game_state| {
+        // there is no effect on the game state for responding to a bang with a missed
+        HashMap::new()
     },
 };

@@ -220,7 +220,6 @@ pub async fn handle_event(
                             deck,
                             discard: Vec::new(),
                             event_state_stack: Vec::new(),
-                            event_data: None,
                         };
 
                         game_states
@@ -314,7 +313,7 @@ pub async fn handle_event(
                 // check the event state stack to find out if the play was an initiation or response
                 match game_state.event_state_stack.clone().last() {
                     // this play must be a response to another, or it is invalid
-                    Some((card_name, event_players)) => {
+                    Some((card_name, event_players, _)) => {
                         if event_players.contains(&String::from(client_id)) {
                             // based on what event is currenty being processed, decide on the behavior
                             let messages = (cards::get_card_data(card_name).update)(
@@ -341,7 +340,7 @@ pub async fn handle_event(
                                 let (precheck, effect): (
                                     &types::CardConditions,
                                     &types::CardEffect,
-                                ) = (&card_data.preconditions, &card_data.effect);
+                                ) = (&card_data.requirements, &card_data.initiate);
 
                                 // default to an empty vector for cards whose effects do not concern targets
                                 let targets = match client_event.target_ids {

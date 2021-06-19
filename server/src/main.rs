@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use warp::Filter;
 
+mod builders;
 mod data_types;
 mod game_engine;
 mod handler;

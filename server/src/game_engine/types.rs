@@ -4,12 +4,7 @@ use std::collections::HashMap;
 pub type GameStates = HashMap<String, GameState>;
 
 /// the card whose effect is being played, and the list of players it wants a respons from
-type EventState = (shared_types::CardName, Vec<String>);
-
-#[derive(Clone)]
-pub struct EventData {
-    cards: Option<Vec<shared_types::Card>>,
-}
+type EventState = (shared_types::CardName, Vec<String>, Vec<shared_types::Card>);
 
 #[derive(Clone)]
 pub struct GameState {
@@ -21,7 +16,6 @@ pub struct GameState {
     pub discard: Vec<shared_types::Card>,
     // data for dynamic gameplay
     pub event_state_stack: Vec<EventState>,
-    pub event_data: Option<EventData>,
 }
 
 pub type CharacterEffect = &'static str; /* i have no dam clue wat type this is */
@@ -57,8 +51,8 @@ pub struct CardData {
     pub color: CardColor,
 
     pub triggers: &'static [EventTrigger],
-    pub preconditions: CardConditions,
-    pub effect: CardEffect,
+    pub requirements: CardConditions,
+    pub initiate: CardEffect,
     pub update: GameStateUpdate,
 }
 

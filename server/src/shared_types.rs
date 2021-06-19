@@ -4,7 +4,7 @@
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Default, Clone, Serialize)]
 pub struct ServerEventData {
     pub session_id: Option<String>,
     pub client_id: Option<String>,
@@ -31,14 +31,14 @@ pub struct GameData {
     pub discard: Vec<Card>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ServerEvent {
     pub event_code: ServerEventCode,
     pub message: Option<String>,
     pub data: Option<ServerEventData>,
 }
 
-#[derive(Debug, Serialize_repr)]
+#[derive(Debug, Clone, Serialize_repr)]
 #[repr(u8)]
 pub enum ServerEventCode {
     // session_id, client_id, session_client_ids
@@ -99,6 +99,8 @@ pub enum CardName {
     Hatchet,
     Indians,
     Missed,
+    Duel,
+    GeneralStore,
     Beer,
     // Blue Cards
     Barrel,
