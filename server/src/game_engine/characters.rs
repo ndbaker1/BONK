@@ -13,5 +13,4 @@ static BILLYTHEKID_CHARACTER_DATA: game_engine::types::CharacterData =
         hp: 5,
         triggers: &[game_engine::types::EventTrigger::Damage],
         effect_optional: true,
-        effect: "wat is this type, idk ",
     };

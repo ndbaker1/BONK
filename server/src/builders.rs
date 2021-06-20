@@ -1,4 +1,6 @@
-use crate::shared_types::{ServerEvent, ServerEventCode, ServerEventData};
+use crate::shared_types::{
+    Card, GameData, PlayerData, ServerEvent, ServerEventCode, ServerEventData,
+};
 
 impl ServerEvent {
     pub fn builder(event_code: ServerEventCode) -> ServerEventBuilder {
@@ -58,6 +60,29 @@ impl ServerEventDataBuilder {
 
     pub fn session_id(mut self, session_id: &str) -> ServerEventDataBuilder {
         self.server_event_data.session_id = Some(session_id.to_string());
+        self
+    }
+
+    pub fn session_client_ids(
+        mut self,
+        session_client_ids: &Vec<String>,
+    ) -> ServerEventDataBuilder {
+        self.server_event_data.session_client_ids = Some(session_client_ids.clone());
+        self
+    }
+
+    pub fn card_options(mut self, card_options: &Vec<Card>) -> ServerEventDataBuilder {
+        self.server_event_data.card_options = Some(card_options.clone());
+        self
+    }
+
+    pub fn game_data(mut self, game_data: &GameData) -> ServerEventDataBuilder {
+        self.server_event_data.game_data = Some(game_data.clone());
+        self
+    }
+
+    pub fn player_data(mut self, player_data: &PlayerData) -> ServerEventDataBuilder {
+        self.server_event_data.player_data = Some(player_data.clone());
         self
     }
 

@@ -3,14 +3,17 @@
  */
 
 export type ServerEventData = {
+    health_change?: number,
     session_id?: string,
     client_id?: string,
     session_client_ids?: Array<string>,
     game_data?: GameData,
     player_data?: PlayerData,
+    card_options?: Array<Card>,
 }
 
 export type PlayerData = {
+    max_health: number,
     health: number,
     hand: Array<Card>,
     field: Array<Card>,
@@ -43,6 +46,7 @@ export enum ServerEventCode {
     // client_id
     TurnStart,
     LogicError,
+    Action,
     Draw,
     // indicated a decrease in player hp
     Damage,

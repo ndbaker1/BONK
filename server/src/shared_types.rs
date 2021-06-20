@@ -6,15 +6,18 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct ServerEventData {
+    pub health_change: Option<i8>,
     pub session_id: Option<String>,
     pub client_id: Option<String>,
     pub session_client_ids: Option<Vec<String>>,
     pub game_data: Option<GameData>,
     pub player_data: Option<PlayerData>,
+    pub card_options: Option<Vec<Card>>,
 }
 
 #[derive(Serialize, Debug, Clone)]
 pub struct PlayerData {
+    pub max_health: i8,
     pub health: i8,
     pub hand: Vec<Card>,
     pub field: Vec<Card>,
@@ -51,6 +54,7 @@ pub enum ServerEventCode {
     // client_id
     TurnStart,
     LogicError,
+    Action,
     Draw,
     // indicated a decrease in player hp
     Damage,

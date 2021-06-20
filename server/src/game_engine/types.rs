@@ -18,11 +18,11 @@ pub struct GameState {
     pub event_state_stack: Vec<EventState>,
 }
 
-pub type CharacterEffect = &'static str; /* i have no dam clue wat type this is */
+// pub type CharacterEffect = &'static str; /* i have no dam clue wat type this is */
 pub struct CharacterData {
     pub hp: u8,
     pub triggers: &'static [EventTrigger],
-    pub effect: CharacterEffect,
+    // pub effect: CharacterEffect,
     pub effect_optional: bool,
 }
 
@@ -49,7 +49,7 @@ pub type GameStateUpdate = fn(
 
 pub struct CardData {
     pub color: CardColor,
-
+    pub response_to: &'static [EventTrigger],
     pub triggers: &'static [EventTrigger],
     pub requirements: CardConditions,
     pub initiate: CardEffect,
