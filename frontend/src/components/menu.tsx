@@ -42,7 +42,7 @@ function JoinSessionComponent({ goBack }: { goBack: () => void }) {
               <InputAdornment position="end">
                 <Tooltip title="Join">
                   <IconButton
-                    onClick={() => connection?.join_session(inputSession, (error) => setNotification(error))}
+                    onClick={() => connection?.joinSession(inputSession, (error) => setNotification(error))}
                   > <ForwardIcon />
                   </IconButton>
                 </Tooltip>
@@ -51,7 +51,7 @@ function JoinSessionComponent({ goBack }: { goBack: () => void }) {
                     onClick={() => navigator.clipboard.readText()
                       .then(session => {
                         setInputSession(session)
-                        connection?.join_session(session, (error) => setNotification(error))
+                        connection?.joinSession(session, (error) => setNotification(error))
                       })
                     }
                   > <PlayForWorkIcon />
@@ -74,7 +74,7 @@ function NavigateComponent({ join }: { join: () => void }) {
       <TextField label="UserID" variant="outlined" value={getUser()} />
       <Button onClick={() => connection?.disconnect()}> Disconnect </Button>
       <Button onClick={() => join()}> Join Session </Button>
-      <Button onClick={() => connection?.create_session()}> Create Session </Button>
+      <Button onClick={() => connection?.createSession()}> Create Session </Button>
     </>
   )
 }

@@ -47,7 +47,7 @@ export default function LobbyComponent(): JSX.Element {
           }}
         />
         <Button onClick={() => {
-          connection?.leave_session()
+          connection?.leaveSession()
         }}>  Leave Session </Button>
 
         <Button onClick={() => {

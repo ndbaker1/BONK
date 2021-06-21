@@ -485,6 +485,7 @@ static GENERAL_STORE_CARD_DATA: game_engine::types::CardData = game_engine::type
             if players.is_empty() {
                 // pop the event from the stack
                 game_state.event_state_stack.pop();
+                // norify all users what card was chosen and complete the event
                 HashMap::new()
             } else {
                 // create builder template for notifying players of the next player choosing

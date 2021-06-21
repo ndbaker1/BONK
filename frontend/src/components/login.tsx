@@ -22,7 +22,7 @@ export default function LoginComponent(): JSX.Element {
           open: () => {
             setScreen(Screen.Menu)
             setNotification('Connected.')
-            connection.fetchSession()
+            connection.fetchState()
           },
           error: () => {
             setNotification('Error: ID may already be taken.')

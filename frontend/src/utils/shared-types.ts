@@ -48,16 +48,29 @@ export enum ServerEventCode {
     LogicError,
     Action,
     Draw,
-    // indicated a decrease in player hp
+    // indicates a decrease in player hp
     Damage,
     Targetted,
 }
 
 export type ClientEvent = {
     event_code: ClientEventCode,
-    target_ids?: Array<string>,
+    action_type?: ClientEventActionType,
     cards?: Array<Card>,
+    character?: Character,
+    target_ids?: Array<string>,
+    intent?: ClientEventIntent,
     session_id?: string,
+}
+
+export enum ClientEventIntent {
+    AsIs = 1,
+    ForResponse,
+}
+
+export enum ClientEventActionType {
+    Card = 1,
+    CharacterAbility,
 }
 
 export enum ClientEventCode {

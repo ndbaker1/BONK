@@ -56,7 +56,7 @@ pub enum ServerEventCode {
     LogicError,
     Action,
     Draw,
-    // indicated a decrease in player hp
+    // indicates a decrease in player hp
     Damage,
     Targetted,
 }
@@ -64,9 +64,26 @@ pub enum ServerEventCode {
 #[derive(Deserialize)]
 pub struct ClientEvent {
     pub event_code: ClientEventCode,
-    pub target_ids: Option<Vec<String>>,
+    pub action_type: Option<ClientEventActionType>,
     pub cards: Option<Vec<Card>>,
+    pub character: Option<Character>,
+    pub target_ids: Option<Vec<String>>,
+    pub intent: Option<ClientEventIntent>,
     pub session_id: Option<String>,
+}
+
+#[derive(Deserialize_repr)]
+#[repr(u8)]
+pub enum ClientEventIntent {
+    AsIs = 1,
+    ForResponse,
+}
+
+#[derive(Deserialize_repr)]
+#[repr(u8)]
+pub enum ClientEventActionType {
+    Card = 1,
+    CharacterAbility,
 }
 
 #[derive(Deserialize_repr)]
@@ -150,7 +167,7 @@ pub enum Role {
     Deputy,
 }
 
-#[derive(Serialize_repr, Debug, Clone, Eq, Hash, PartialEq)]
+#[derive(Deserialize_repr, Serialize_repr, Debug, Clone, Eq, Hash, PartialEq)]
 #[repr(u8)]
 pub enum Character {
     BillyTheKid = 1,

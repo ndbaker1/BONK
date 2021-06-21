@@ -29,9 +29,9 @@ export default function AppTestComponent(): JSX.Element {
           if (response.data.client_id === 'user1' && response.data.session_id) {
             addLog('successfully created session with user1 as owner')
             addLog('requesting user2, user3, and user4 to join...')
-            user2.join_session(response.data.session_id)
-            user3.join_session(response.data.session_id)
-            user4.join_session(response.data.session_id)
+            user2.joinSession(response.data.session_id)
+            user3.joinSession(response.data.session_id)
+            user4.joinSession(response.data.session_id)
           } else if (response.data.session_client_ids && response.data.session_client_ids.length === 4) {
             addLog('all users joined session!')
             addLog('starting game...')
@@ -47,7 +47,7 @@ export default function AppTestComponent(): JSX.Element {
           addLog('user1 turn.')
           if (userDatas.user1?.player_data?.hand[0]) {
             addLog(`user1 playing card ${CardName[userDatas.user1.player_data.hand[0].name]} on user2`)
-            user1.play_card([userDatas.user1.player_data.hand[0]], ['user2'])
+            user1.playCard([userDatas.user1.player_data.hand[0]], ['user2'])
           }
         }
       },
@@ -59,10 +59,10 @@ export default function AppTestComponent(): JSX.Element {
             const card = userDatas.user1?.player_data?.hand.find(card => card.name === CardName.Missed)
             if (card) {
               addLog('playing missed!')
-              user1.play_card([card], [])
+              user1.playCard([card], [])
             } else {
               addLog('no missed.. taking damage.')
-              user1.play_card([], [])
+              user1.playCard([], [])
             }
           }
         }
@@ -76,7 +76,7 @@ export default function AppTestComponent(): JSX.Element {
           addLog('user2 turn.')
           if (userDatas.user2?.player_data?.hand[0]) {
             addLog(`user2 playing card ${CardName[userDatas.user2.player_data.hand[0].name]} on user3`)
-            user2.play_card([userDatas.user2.player_data.hand[0]], ['user3'])
+            user2.playCard([userDatas.user2.player_data.hand[0]], ['user3'])
           }
         }
       },
@@ -90,10 +90,10 @@ export default function AppTestComponent(): JSX.Element {
             const card = userDatas.user2?.player_data?.hand.find(card => card.name === CardName.Missed)
             if (card) {
               addLog('playing missed!')
-              user2.play_card([card], [])
+              user2.playCard([card], [])
             } else {
               addLog('no missed.. taking damage.')
-              user2.play_card([], [])
+              user2.playCard([], [])
             }
           }
         }
@@ -108,7 +108,7 @@ export default function AppTestComponent(): JSX.Element {
           addLog('user3 turn.')
           if (userDatas.user3?.player_data?.hand[0]) {
             addLog(`user3 playing card ${CardName[userDatas.user3.player_data.hand[0].name]} on user4`)
-            user3.play_card([userDatas.user3.player_data.hand[0]], ['user4'])
+            user3.playCard([userDatas.user3.player_data.hand[0]], ['user4'])
           }
         }
       },
@@ -121,10 +121,10 @@ export default function AppTestComponent(): JSX.Element {
             const card = userDatas.user3?.player_data?.hand.find(card => card.name === CardName.Missed)
             if (card) {
               addLog('playing missed!')
-              user3.play_card([card], [])
+              user3.playCard([card], [])
             } else {
               addLog('no missed.. taking damage.')
-              user3.play_card([], [])
+              user3.playCard([], [])
             }
           }
         }
@@ -138,7 +138,7 @@ export default function AppTestComponent(): JSX.Element {
           addLog('user4 turn.')
           if (userDatas.user4?.player_data?.hand[0]) {
             addLog(`user4 playing card ${CardName[userDatas.user4.player_data.hand[0].name]} on user1`)
-            user4.play_card([userDatas.user4.player_data.hand[0]], ['user1'])
+            user4.playCard([userDatas.user4.player_data.hand[0]], ['user1'])
           }
         }
       },
@@ -151,10 +151,10 @@ export default function AppTestComponent(): JSX.Element {
             const card = userDatas.user4?.player_data?.hand.find(card => card.name === CardName.Missed)
             if (card) {
               addLog('playing missed!')
-              user4.play_card([card], [])
+              user4.playCard([card], [])
             } else {
               addLog('no missed.. taking damage.')
-              user4.play_card([], [])
+              user4.playCard([], [])
             }
           }
         }
@@ -168,7 +168,7 @@ export default function AppTestComponent(): JSX.Element {
             open: () => {
               addLog('successfully connected all users.')
               addLog('attempting to create a room...')
-              user1.create_session()
+              user1.createSession()
             },
           }),
         }),

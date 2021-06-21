@@ -279,6 +279,10 @@ pub async fn handle_event(
                 None => Vec::new(), // no card list for a play-card event?
             };
 
+            // later incorporate events that are not only cards
+            // the actiontype will tell if the action is a card play or a character ability
+            let action_type = client_event.action_type;
+
             let session_id = match get_client_session_id(client_id, clients).await {
                 Some(s_id) => s_id,
                 None => return, // this card was not played in an active session?

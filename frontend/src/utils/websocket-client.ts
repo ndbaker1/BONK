@@ -1,6 +1,6 @@
 import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
-import { Card, ClientEvent, ClientEventCode, ServerEvent, ServerEventCode } from './shared-types'
+import { Card, Character, ClientEvent, ClientEventCode, ClientEventIntent, ServerEvent, ServerEventCode } from './shared-types'
 
 type ServerEventCallbacks = Partial<Record<ServerEventCode, ServerEventCallback>>
 type ServerEventCallback = (response: ServerEvent) => void
@@ -9,7 +9,7 @@ export class ServerConnection {
   private eventHandler: (event: IMessageEvent) => void
 
   constructor(callbacks: ServerEventCallbacks) {
-    this.eventHandler = this.create_event_handler(callbacks)
+    this.eventHandler = this.createEventHandler(callbacks)
   }
 
   public connect(user_id: string, callbacks: {
@@ -42,12 +42,12 @@ export class ServerConnection {
   //=====================================
   // Receives Messages from the Server
   //=====================================
-  private create_event_handler(callbacks: ServerEventCallbacks) {
+  private createEventHandler(callbacks: ServerEventCallbacks) {
     return (event: IMessageEvent) => {
       const response: ServerEvent = JSON.parse(event.data as string)
-      // console.log('event handler:', response)
       const callback: ServerEventCallback | undefined = callbacks[response.event_code]
 
+      // console.log('event handler:', response)
       if (callback)
         callback(response)
     }
@@ -60,21 +60,31 @@ export class ServerConnection {
     return !!this.socket && this.socket.readyState == this.socket.OPEN
   }
 
-  public play_card(cards: Card[], targets: string[]): void {
+  public playCard(cards: Card[], targets: string[], intent?: ClientEventIntent): void {
     this.send_message({
-      event_code: ClientEventCode.PlayCard,
+      event_code: ClientEventCode.PlayerAction,
+      intent,
       target_ids: targets,
       cards,
     })
   }
 
-  public create_session(): void {
+  public useAbility(character: Character, targets: string[], intent?: ClientEventIntent): void {
+    this.send_message({
+      event_code: ClientEventCode.PlayerAction,
+      intent,
+      target_ids: targets,
+      character,
+    })
+  }
+
+  public createSession(): void {
     this.send_message({
       event_code: ClientEventCode.CreateSession,
     })
   }
 
-  public leave_session(): void {
+  public leaveSession(): void {
     this.send_message({
       event_code: ClientEventCode.LeaveSession,
     })
@@ -86,8 +96,7 @@ export class ServerConnection {
     })
   }
 
-
-  public join_session(session_id: string, errorCallback?: (err: string) => void): void {
+  public joinSession(session_id: string, errorCallback?: (err: string) => void): void {
     const error = this.verifySessionID(session_id)
     if (error) {
       errorCallback && errorCallback(error)
@@ -99,7 +108,7 @@ export class ServerConnection {
     }
   }
 
-  public fetchSession(): void {
+  public fetchState(): void {
     this.send_message({
       event_code: ClientEventCode.DataRequest,
     })
@@ -115,6 +124,9 @@ export class ServerConnection {
       this.socket.send(JSON.stringify(session_update))
   }
 
+  //========================
+  // Utility Functions
+  //========================
   private verifySessionID(sessionID: string): string {
     const sessionIDLength = 5
     const errors: string[] = []
