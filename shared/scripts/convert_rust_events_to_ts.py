@@ -44,7 +44,7 @@ def convert_rust_syntax_to_ts(rust_string: str):
     ts_string = rust_string
 
     # Struct vs Enum vs Field definition
-    if 'struct' in ts_string or 'type' in ts_string:
+    if 'struct' in ts_string or 'type ' in ts_string:
         for (old, new) in type_def_replacements:
             ts_string = ts_string.replace(old, new)
     elif 'enum' in ts_string:
