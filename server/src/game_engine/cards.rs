@@ -354,7 +354,7 @@ static INDIANS_CARD_DATA: game_engine::types::CardData = game_engine::types::Car
                     // remove the player from the list of expecting responses
                     players.retain(|player| player != user_id);
                     // if the player number is empty the event ends
-                    if game_state.event_state_stack.is_empty() {
+                    if players.is_empty() {
                         // remove the event from the stack
                         game_state.event_state_stack.pop();
                     }
@@ -374,7 +374,7 @@ static INDIANS_CARD_DATA: game_engine::types::CardData = game_engine::types::Car
                 // remove the player from the list of expecting responses
                 players.retain(|player| player != user_id);
                 // if the player number is empty the event ends
-                if game_state.event_state_stack.is_empty() {
+                if players.is_empty() {
                     // remove the event from the stack
                     game_state.event_state_stack.pop();
                 }
