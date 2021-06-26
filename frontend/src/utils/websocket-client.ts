@@ -1,18 +1,32 @@
+import { Subject } from 'rxjs'
 import { IMessageEvent, w3cwebsocket as W3CWebSocket } from 'websocket'
 import { environment } from '../environment'
 import { Card, Character, ClientEvent, ClientEventCode, ClientEventIntent, ServerEvent, ServerEventCode } from './shared-types'
 
-type ServerEventCallbacks = Partial<Record<ServerEventCode, ServerEventCallback>>
-type ServerEventCallback = (response: ServerEvent) => void
+const emptyCallback = () => 0
+
+type ServerEventCallbacks = Record<ServerEventCode, Subject<ServerEvent>>
+
 export class ServerConnection {
   private socket: W3CWebSocket | null = null
-  private eventHandler: (event: IMessageEvent) => void
-
-  constructor(callbacks: ServerEventCallbacks) {
-    this.eventHandler = this.createEventHandler(callbacks)
+  private callbacks: ServerEventCallbacks = {
+    [ServerEventCode.ClientJoined]: new Subject(),
+    [ServerEventCode.ClientLeft]: new Subject(),
+    [ServerEventCode.GameStarted]: new Subject(),
+    [ServerEventCode.Damage]: new Subject(),
+    [ServerEventCode.DataResponse]: new Subject(),
+    [ServerEventCode.Draw]: new Subject(),
+    [ServerEventCode.Action]: new Subject(),
+    [ServerEventCode.LogicError]: new Subject(),
+    [ServerEventCode.Targetted]: new Subject(),
+    [ServerEventCode.TurnStart]: new Subject(),
   }
 
-  public connect(user_id: string, callbacks: {
+  addHandler(eventCode: ServerEventCode, handler: (response: ServerEvent) => void): void {
+    this.callbacks[eventCode].subscribe(handler)
+  }
+
+  connect(user_id: string, callbacks: {
     open?: () => void
     close?: () => void
     error?: (err: unknown) => void
@@ -20,13 +34,13 @@ export class ServerConnection {
     const setupConnection = () => {
       this.socket = new W3CWebSocket(`${environment.ws_or_wss}://${environment.apiDomain}/ws/${user_id}`)
       this.socket.onmessage = this.eventHandler
-      this.socket.onopen = () => (callbacks.open ?? (() => 0))()
-      this.socket.onclose = () => (callbacks.close ?? (() => 0))()
-      this.socket.onerror = err => (callbacks.error ?? (() => 0))(err)
+      this.socket.onopen = () => (callbacks.open ?? emptyCallback)()
+      this.socket.onclose = () => (callbacks.close ?? emptyCallback)()
+      this.socket.onerror = err => (callbacks.error ?? emptyCallback)(err)
     }
     if (this.socket && this.socket.readyState != this.socket.CLOSED) {
       this.socket.onclose = () => {
-        (callbacks.close ?? (() => 0))()
+        (callbacks.close ?? emptyCallback)()
         setupConnection()
       }
       this.socket.close()
@@ -35,32 +49,27 @@ export class ServerConnection {
     }
   }
 
-  public disconnect(): void {
+  disconnect(): void {
     this.socket?.close()
   }
 
   //=====================================
   // Receives Messages from the Server
   //=====================================
-  private createEventHandler(callbacks: ServerEventCallbacks) {
-    return (event: IMessageEvent) => {
-      const response: ServerEvent = JSON.parse(event.data as string)
-      const callback: ServerEventCallback | undefined = callbacks[response.event_code]
-
-      // console.log('event handler:', response)
-      if (callback)
-        callback(response)
-    }
+  private eventHandler = (event: IMessageEvent) => {
+    const response: ServerEvent = JSON.parse(event.data as string)
+    console.log('event handler:', response)
+    this.callbacks[response.event_code].next(response)
   }
 
   //=====================
   // Public Methods
   //=====================
-  public isOpen(): boolean {
+  isOpen(): boolean {
     return !!this.socket && this.socket.readyState == this.socket.OPEN
   }
 
-  public playCard(cards: Card[], targets: string[], intent?: ClientEventIntent): void {
+  playCard(cards: Card[], targets: string[], intent?: ClientEventIntent): void {
     this.send_message({
       event_code: ClientEventCode.PlayerAction,
       intent,
@@ -69,7 +78,7 @@ export class ServerConnection {
     })
   }
 
-  public useAbility(character: Character, targets: string[], intent?: ClientEventIntent): void {
+  useAbility(character: Character, targets: string[], intent?: ClientEventIntent): void {
     this.send_message({
       event_code: ClientEventCode.PlayerAction,
       intent,
@@ -78,25 +87,25 @@ export class ServerConnection {
     })
   }
 
-  public createSession(): void {
+  createSession(): void {
     this.send_message({
       event_code: ClientEventCode.CreateSession,
     })
   }
 
-  public leaveSession(): void {
+  leaveSession(): void {
     this.send_message({
       event_code: ClientEventCode.LeaveSession,
     })
   }
 
-  public startGame(): void {
+  startGame(): void {
     this.send_message({
       event_code: ClientEventCode.StartGame,
     })
   }
 
-  public joinSession(session_id: string, errorCallback?: (err: string) => void): void {
+  joinSession(session_id: string, errorCallback?: (err: string) => void): void {
     const error = this.verifySessionID(session_id)
     if (error) {
       errorCallback && errorCallback(error)
@@ -108,7 +117,7 @@ export class ServerConnection {
     }
   }
 
-  public fetchState(): void {
+  fetchState(): void {
     this.send_message({
       event_code: ClientEventCode.DataRequest,
     })

@@ -1,6 +1,7 @@
 import React from 'react'
 import { Helmet } from 'react-helmet'
 import AppComponent from '../components/app'
+import AppTestComponent from '../components/app-test'
 
 export default function Home(): JSX.Element {
   return (
@@ -11,6 +12,7 @@ export default function Home(): JSX.Element {
         <link rel="icon" href="./favicon.ico" />
       </Helmet>
       <AppComponent />
+      {/* <AppTestComponent /> */}
     </div>
   )
 }

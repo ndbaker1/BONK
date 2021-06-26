@@ -1,7 +1,7 @@
 import React from 'react'
 import { ServerConnection } from '../utils/websocket-client'
 import { Slide, Snackbar } from '@material-ui/core'
-import { ServerEventCode, ServerEvent } from '../utils/shared-types'
+import { ServerEventCode } from '../utils/shared-types'
 import { environment } from '../environment'
 
 import { useSessionData } from '../providers/session.provider'
@@ -14,7 +14,6 @@ import LoginComponent from './login'
 import MenuComponent from './menu'
 import GameComponent from './game'
 
-
 export default function AppComponent(): JSX.Element {
 
   const { getScreen, setScreen } = useScreen()
@@ -24,58 +23,61 @@ export default function AppComponent(): JSX.Element {
 
   // run once on init
   React.useEffect(() => {
-    if (environment.healthCheck) // wake up app using the health endpoint
-      fetch(`${environment.http_or_https}://${environment.apiDomain}/health`)
-        .then(() => console.log('health check passed'))
+    healthCheck()
 
-    setConnection(
-      new ServerConnection({
-        [ServerEventCode.ClientJoined]: (response: ServerEvent) => {
-          if (response.data?.client_id == getUser()) {
-            setSession(response.data?.session_id || '')
-            setNotification(response.data?.session_client_ids?.length == 1
-              ? 'Created New Session!'
-              : 'Joined Session!'
-            )
-            setScreen(Screen.Lobby)
-          } else {
-            setNotification('User ' + response.data?.client_id + ' Joined!')
-          }
-          setUsers(response.data?.session_client_ids || [])
-        },
-        [ServerEventCode.ClientLeft]: (response: ServerEvent) => {
-          if (response.data?.client_id == getUser()) {
-            setSession('')
-            setUsers([])
-            setNotification('Left the Session.')
-            setScreen(Screen.Menu)
-          } else {
-            setNotification('User ' + response.data?.client_id + ' Left!')
-          }
-          setUsers(getUsers().filter(id => id != response.data?.client_id))
-        },
-        [ServerEventCode.GameStarted]: (response: ServerEvent) => {
-          // setGameData(response.data?.game_data)
-          // setPlayerData(response.data?.player_data)
-          setNotification('Game is starting!')
-          setScreen(Screen.Game)
-        },
-        [ServerEventCode.DataResponse]: (response: ServerEvent) => {
-          setSession(response.data?.session_id || '')
-          setUsers(response.data?.session_client_ids || [])
-          setNotification('Resumed Previous Session!')
-          // setGameData(response.data?.game_data)
-          // setPlayerData(response.data?.player_data)
-          setScreen(Screen.Lobby) // set to different state depending on gamedata
-        },
-        [ServerEventCode.TurnStart]: (response: ServerEvent) => {
-          setNotification(response.data?.session_id + ' is not a valid Session ID')
-        },
-        [ServerEventCode.LogicError]: (response: ServerEvent) => {
-          setNotification(response.message || '')
-        },
-      })
-    )
+    const connection = new ServerConnection()
+
+    connection.addHandler(ServerEventCode.ClientJoined, response => {
+      if (response.data?.client_id == getUser()) {
+        setSession(response.data?.session_id || '')
+        setNotification(response.data?.session_client_ids?.length == 1
+          ? 'Created New Session!'
+          : 'Joined Session!'
+        )
+        setScreen(Screen.Lobby)
+      } else {
+        setNotification('User ' + response.data?.client_id + ' Joined!')
+      }
+      setUsers(response.data?.session_client_ids || [])
+    })
+
+    connection.addHandler(ServerEventCode.ClientLeft, response => {
+      if (response.data?.client_id == getUser()) {
+        setSession('')
+        setUsers([])
+        setNotification('Left the Session.')
+        setScreen(Screen.Menu)
+      } else {
+        setNotification('User ' + response.data?.client_id + ' Left!')
+      }
+      setUsers(getUsers().filter(id => id != response.data?.client_id))
+    })
+
+    connection.addHandler(ServerEventCode.GameStarted, response => {
+      // setGameData(response.data?.game_data)
+      // setPlayerData(response.data?.player_data)
+      setNotification('Game is starting!')
+      setScreen(Screen.Game)
+    })
+
+    connection.addHandler(ServerEventCode.DataResponse, response => {
+      setSession(response.data?.session_id || '')
+      setUsers(response.data?.session_client_ids || [])
+      setNotification('Resumed Previous Session!')
+      // setGameData(response.data?.game_data)
+      // setPlayerData(response.data?.player_data)
+      setScreen(Screen.Lobby) // set to different state depending on gamedata
+    })
+
+    connection.addHandler(ServerEventCode.TurnStart, response => {
+      setNotification(response.data?.session_id + ' is not a valid Session ID')
+    })
+
+    connection.addHandler(ServerEventCode.LogicError, response => {
+      setNotification(response.message || '')
+    })
+
+    setConnection(connection)
   }, [])
 
   return (
@@ -98,5 +100,18 @@ function ScreenRouter({ screen }: { screen: Screen }) {
     case Screen.Menu: return <MenuComponent />
     case Screen.Lobby: return <LobbyComponent />
     case Screen.Game: return <GameComponent />
+  }
+}
+
+function healthCheck(iter = 0) {
+  if (environment.healthCheck) {
+    if (iter < 10) {
+      // wake up app using the health endpoint
+      fetch(`${environment.http_or_https}://${environment.apiDomain}/health`)
+        .then(() => console.log('health check passed'))
+        .catch(() => healthCheck(iter + 1))
+    } else {
+      console.log('Server could not be reached.')
+    }
   }
 }

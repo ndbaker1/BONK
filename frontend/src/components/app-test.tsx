@@ -23,139 +23,139 @@ export default function AppTestComponent(): JSX.Element {
   function addLog(msg: string) { setLogs(logs => [...logs, msg]) }
 
   React.useEffect(() => {
-    const user1 = new ServerConnection({
-      [ServerEventCode.ClientJoined]: (response) => {
-        if (response.data) {
-          if (response.data.client_id === 'user1' && response.data.session_id) {
-            addLog('successfully created session with user1 as owner')
-            addLog('requesting user2, user3, and user4 to join...')
-            user2.joinSession(response.data.session_id)
-            user3.joinSession(response.data.session_id)
-            user4.joinSession(response.data.session_id)
-          } else if (response.data.session_client_ids && response.data.session_client_ids.length === 4) {
-            addLog('all users joined session!')
-            addLog('starting game...')
-            user1.startGame()
-          }
+    const user1 = new ServerConnection()
+    user1.addHandler(ServerEventCode.ClientJoined, (response) => {
+      if (response.data) {
+        if (response.data.client_id === 'user1' && response.data.session_id) {
+          addLog('successfully created session with user1 as owner')
+          addLog('requesting user2, user3, and user4 to join...')
+          user2.joinSession(response.data.session_id)
+          user3.joinSession(response.data.session_id)
+          user4.joinSession(response.data.session_id)
+        } else if (response.data.session_client_ids && response.data.session_client_ids.length === 4) {
+          addLog('all users joined session!')
+          addLog('starting game...')
+          user1.startGame()
         }
-      },
-      [ServerEventCode.GameStarted]: (response) => {
-        addLog('game started.')
+      }
+    })
 
-        setUserData('user1', response.data)
-        if (isPlayerTurn(response.data, 'user1')) {
-          addLog('user1 turn.')
-          if (userDatas.user1?.player_data?.hand[0]) {
-            addLog(`user1 playing card ${CardName[userDatas.user1.player_data.hand[0].name]} on user2`)
-            user1.playCard([userDatas.user1.player_data.hand[0]], ['user2'])
-          }
+    user1.addHandler(ServerEventCode.GameStarted, (response) => {
+      addLog('game started.')
+
+      setUserData('user1', response.data)
+      if (isPlayerTurn(response.data, 'user1')) {
+        addLog('user1 turn.')
+        if (userDatas.user1?.player_data?.hand[0]) {
+          addLog(`user1 playing card ${CardName[userDatas.user1.player_data.hand[0].name]} on user2`)
+          user1.playCard([userDatas.user1.player_data.hand[0]], ['user2'])
         }
-      },
-      [ServerEventCode.LogicError]: (response) => {
-        if (response.message) {
-          addLog('user1 error: ' + response.message)
-          if (response.message.includes('Targetted')) {
-            addLog('looking for a missed...')
-            const card = userDatas.user1?.player_data?.hand.find(card => card.name === CardName.Missed)
-            if (card) {
-              addLog('playing missed!')
-              user1.playCard([card], [])
-            } else {
-              addLog('no missed.. taking damage.')
-              user1.playCard([], [])
-            }
+      }
+    })
+    user1.addHandler(ServerEventCode.LogicError, (response) => {
+      if (response.message) {
+        addLog('user1 error: ' + response.message)
+        if (response.message.includes('Targetted')) {
+          addLog('looking for a missed...')
+          const card = userDatas.user1?.player_data?.hand.find(card => card.name === CardName.Missed)
+          if (card) {
+            addLog('playing missed!')
+            user1.playCard([card], [])
+          } else {
+            addLog('no missed.. taking damage.')
+            user1.playCard([], [])
           }
         }
       }
     })
 
-    const user2 = new ServerConnection({
-      [ServerEventCode.GameStarted]: (response) => {
-        setUserData('user2', response.data)
-        if (isPlayerTurn(response.data, 'user2')) {
-          addLog('user2 turn.')
-          if (userDatas.user2?.player_data?.hand[0]) {
-            addLog(`user2 playing card ${CardName[userDatas.user2.player_data.hand[0].name]} on user3`)
-            user2.playCard([userDatas.user2.player_data.hand[0]], ['user3'])
-          }
+    const user2 = new ServerConnection()
+
+    user2.addHandler(ServerEventCode.GameStarted, (response) => {
+      setUserData('user2', response.data)
+      if (isPlayerTurn(response.data, 'user2')) {
+        addLog('user2 turn.')
+        if (userDatas.user2?.player_data?.hand[0]) {
+          addLog(`user2 playing card ${CardName[userDatas.user2.player_data.hand[0].name]} on user3`)
+          user2.playCard([userDatas.user2.player_data.hand[0]], ['user3'])
         }
-      },
-      [ServerEventCode.LogicError]: (response) => {
-        if (response.message) {
-          addLog('user2 error: ' + response.message)
-
-          if (response.message.includes('Targetted')) {
-            addLog('looking for a missed...')
-
-            const card = userDatas.user2?.player_data?.hand.find(card => card.name === CardName.Missed)
-            if (card) {
-              addLog('playing missed!')
-              user2.playCard([card], [])
-            } else {
-              addLog('no missed.. taking damage.')
-              user2.playCard([], [])
-            }
-          }
-        }
-
       }
     })
 
-    const user3 = new ServerConnection({
-      [ServerEventCode.GameStarted]: (response) => {
-        setUserData('user3', response.data)
-        if (isPlayerTurn(response.data, 'user3')) {
-          addLog('user3 turn.')
-          if (userDatas.user3?.player_data?.hand[0]) {
-            addLog(`user3 playing card ${CardName[userDatas.user3.player_data.hand[0].name]} on user4`)
-            user3.playCard([userDatas.user3.player_data.hand[0]], ['user4'])
-          }
-        }
-      },
-      [ServerEventCode.LogicError]: (response) => {
-        if (response.message) {
-          addLog('user3 error: ' + response.message)
-          if (response.message.includes('Targetted')) {
-            addLog('looking for a missed...')
+    user2.addHandler(ServerEventCode.LogicError, (response) => {
+      if (response.message) {
+        addLog('user2 error: ' + response.message)
 
-            const card = userDatas.user3?.player_data?.hand.find(card => card.name === CardName.Missed)
-            if (card) {
-              addLog('playing missed!')
-              user3.playCard([card], [])
-            } else {
-              addLog('no missed.. taking damage.')
-              user3.playCard([], [])
-            }
+        if (response.message.includes('Targetted')) {
+          addLog('looking for a missed...')
+
+          const card = userDatas.user2?.player_data?.hand.find(card => card.name === CardName.Missed)
+          if (card) {
+            addLog('playing missed!')
+            user2.playCard([card], [])
+          } else {
+            addLog('no missed.. taking damage.')
+            user2.playCard([], [])
           }
         }
       }
     })
 
-    const user4 = new ServerConnection({
-      [ServerEventCode.GameStarted]: (response) => {
-        setUserData('user4', response.data)
-        if (isPlayerTurn(response.data, 'user4')) {
-          addLog('user4 turn.')
-          if (userDatas.user4?.player_data?.hand[0]) {
-            addLog(`user4 playing card ${CardName[userDatas.user4.player_data.hand[0].name]} on user1`)
-            user4.playCard([userDatas.user4.player_data.hand[0]], ['user1'])
+
+    const user3 = new ServerConnection()
+    user3.addHandler(ServerEventCode.GameStarted, (response) => {
+      setUserData('user3', response.data)
+      if (isPlayerTurn(response.data, 'user3')) {
+        addLog('user3 turn.')
+        if (userDatas.user3?.player_data?.hand[0]) {
+          addLog(`user3 playing card ${CardName[userDatas.user3.player_data.hand[0].name]} on user4`)
+          user3.playCard([userDatas.user3.player_data.hand[0]], ['user4'])
+        }
+      }
+    })
+    user3.addHandler(ServerEventCode.LogicError, (response) => {
+      if (response.message) {
+        addLog('user3 error: ' + response.message)
+        if (response.message.includes('Targetted')) {
+          addLog('looking for a missed...')
+
+          const card = userDatas.user3?.player_data?.hand.find(card => card.name === CardName.Missed)
+          if (card) {
+            addLog('playing missed!')
+            user3.playCard([card], [])
+          } else {
+            addLog('no missed.. taking damage.')
+            user3.playCard([], [])
           }
         }
-      },
-      [ServerEventCode.LogicError]: (response) => {
-        if (response.message) {
-          addLog('user4 error: ' + response.message)
-          if (response.message.includes('Targetted')) {
-            addLog('looking for a missed...')
+      }
+    })
 
-            const card = userDatas.user4?.player_data?.hand.find(card => card.name === CardName.Missed)
-            if (card) {
-              addLog('playing missed!')
-              user4.playCard([card], [])
-            } else {
-              addLog('no missed.. taking damage.')
-              user4.playCard([], [])
-            }
+    const user4 = new ServerConnection()
+    user4.addHandler(ServerEventCode.GameStarted, (response) => {
+      setUserData('user4', response.data)
+      if (isPlayerTurn(response.data, 'user4')) {
+        addLog('user4 turn.')
+        if (userDatas.user4?.player_data?.hand[0]) {
+          addLog(`user4 playing card ${CardName[userDatas.user4.player_data.hand[0].name]} on user1`)
+          user4.playCard([userDatas.user4.player_data.hand[0]], ['user1'])
+        }
+      }
+    })
+
+    user4.addHandler(ServerEventCode.LogicError, (response) => {
+      if (response.message) {
+        addLog('user4 error: ' + response.message)
+        if (response.message.includes('Targetted')) {
+          addLog('looking for a missed...')
+
+          const card = userDatas.user4?.player_data?.hand.find(card => card.name === CardName.Missed)
+          if (card) {
+            addLog('playing missed!')
+            user4.playCard([card], [])
+          } else {
+            addLog('no missed.. taking damage.')
+            user4.playCard([], [])
           }
         }
       }
