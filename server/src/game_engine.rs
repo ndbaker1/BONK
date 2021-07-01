@@ -292,10 +292,10 @@ pub async fn handle_event(
                 // check the event state stack to find out if the play was an initiation or response
                 match game_state.event_state_stack.clone().last() {
                     // this play must be a response to another, or it is invalid
-                    Some((card_name, event_players, _)) => {
-                        if event_players.contains(&String::from(client_id)) {
+                    Some(event_state) => {
+                        if event_state.respondents.contains(&String::from(client_id)) {
                             // based on what event is currenty being processed, decide on the behavior
-                            let messages = (cards::get_card_data(card_name).update)(
+                            let messages = (cards::get_card_data(&event_state.card_name).update)(
                                 client_id,
                                 &cards,
                                 &Vec::new(),

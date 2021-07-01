@@ -1,10 +1,31 @@
-use crate::shared_types;
+use crate::shared_types::{self, Card};
 use std::collections::HashMap;
 
 pub type GameStates = HashMap<String, GameState>;
 
-/// the card whose effect is being played, and the list of players it wants a respons from
-type EventState = (shared_types::CardName, Vec<String>, Vec<shared_types::Card>);
+#[derive(Clone)]
+pub enum EventStateData {
+    Cards(Vec<Card>),
+    Players(Vec<String>),
+    PlayersAndCards {
+        cards: Vec<Card>,
+        players: Vec<String>,
+    },
+    None,
+}
+
+#[derive(Clone)]
+pub struct EventState {
+    // the ID of the player who
+    pub initiator: String,
+    // the card which was played
+    pub card_name: shared_types::CardName,
+    // only respondents are allowed to play in response to an event
+    // unless there is a card that can be played out of turn to cancel an effect (escaped?)
+    pub respondents: Vec<String>,
+    // data that is held for the span of the state in order to track actions
+    pub data: EventStateData,
+}
 
 #[derive(Clone)]
 pub struct GameState {

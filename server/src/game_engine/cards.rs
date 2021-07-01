@@ -1,9 +1,13 @@
 use crate::{
     game_engine,
-    game_engine::characters,
+    game_engine::{
+        characters,
+        types::{EventState, EventStateData},
+    },
     shared_types::{self, Card, CardName, ServerEvent, ServerEventCode, ServerEventData},
 };
 use std::{
+    borrow::BorrowMut,
     cmp::min,
     collections::{HashMap, VecDeque},
 };
@@ -194,9 +198,12 @@ static BANG_CARD_DATA: game_engine::types::CardData = game_engine::types::CardDa
 
         game_state.remove_cards_from_hand(user_id, cards);
 
-        game_state
-            .event_state_stack
-            .push((CardName::Bang, targets.clone(), Vec::new()));
+        game_state.event_state_stack.push(EventState {
+            initiator: user_id.to_string(),
+            card_name: CardName::Bang,
+            respondents: targets.clone(),
+            data: EventStateData::None,
+        });
 
         // designate responses if effect involves others, otherwise relaying display data
         game_state
@@ -288,14 +295,14 @@ static MISSED_CARD_DATA: game_engine::types::CardData = game_engine::types::Card
     triggers: &[],
     requirements: |user_id, _, _, game_state| {
         // the user has to currently be targetted by a bang!
-        if let Some((card_name, players, _)) = game_state.event_state_stack.last() {
-            if !get_card_data(card_name)
+        if let Some(event_state) = game_state.event_state_stack.last() {
+            if !get_card_data(&event_state.card_name)
                 .triggers
                 .into_iter()
                 .any(|trigger| MISSED_CARD_DATA.triggers.contains(trigger))
             {
                 Err(String::from("Nothing to play missed for."))
-            } else if players.len() != 1 || players[0] != user_id {
+            } else if event_state.respondents.len() != 1 || event_state.respondents[0] != user_id {
                 Err(String::from(
                     "Player is not in the list of expected responses.",
                 ))
@@ -328,9 +335,13 @@ static INDIANS_CARD_DATA: game_engine::types::CardData = game_engine::types::Car
         let mut players = game_state.player_order.clone();
         players.retain(|player| player != user_id);
         // push the Indians event to the stack
-        game_state
-            .event_state_stack
-            .push((CardName::Indians, players, Vec::new()));
+        game_state.event_state_stack.push(EventState {
+            initiator: user_id.to_string(),
+            card_name: CardName::Indians,
+            respondents: players,
+            data: EventStateData::None,
+        });
+
         // create builder template for notifying players the card has been played
         let event_announcment = ServerEvent::builder(ServerEventCode::Action)
             .message(&format!("{} played Indians!", user_id));
@@ -350,11 +361,11 @@ static INDIANS_CARD_DATA: game_engine::types::CardData = game_engine::types::Car
                 // remove the cards from the players hand
                 game_state.remove_cards_from_hand(user_id, cards);
 
-                if let Some((_, players, _)) = game_state.event_state_stack.last_mut() {
+                if let Some(event_state) = game_state.event_state_stack.last_mut() {
                     // remove the player from the list of expecting responses
-                    players.retain(|player| player != user_id);
+                    event_state.respondents.retain(|player| player != user_id);
                     // if the player number is empty the event ends
-                    if players.is_empty() {
+                    if event_state.respondents.is_empty() {
                         // remove the event from the stack
                         game_state.event_state_stack.pop();
                     }
@@ -370,11 +381,11 @@ static INDIANS_CARD_DATA: game_engine::types::CardData = game_engine::types::Car
                 );
             }
         } else {
-            if let Some((_, players, _)) = game_state.event_state_stack.last_mut() {
+            if let Some(event_state) = game_state.event_state_stack.last_mut() {
                 // remove the player from the list of expecting responses
-                players.retain(|player| player != user_id);
+                event_state.respondents.retain(|player| player != user_id);
                 // if the player number is empty the event ends
-                if players.is_empty() {
+                if event_state.respondents.is_empty() {
                     // remove the event from the stack
                     game_state.event_state_stack.pop();
                 }
@@ -420,8 +431,14 @@ static DUEL_CARD_DATA: game_engine::types::CardData = game_engine::types::CardDa
             Ok(())
         }
     },
-    initiate: |user_id, cards, targets, game_state| HashMap::new(),
-    update: |user_id, cards, targets, game_state| HashMap::new(),
+    initiate: |user_id, cards, targets, game_state| {
+        //
+        HashMap::new()
+    },
+    update: |user_id, cards, targets, game_state| {
+        //
+        HashMap::new()
+    },
 };
 
 static GENERAL_STORE_CARD_DATA: game_engine::types::CardData = game_engine::types::CardData {
@@ -450,11 +467,13 @@ static GENERAL_STORE_CARD_DATA: game_engine::types::CardData = game_engine::type
             .drain(..(game_state.deck.len() - players.len()))
             .collect::<Vec<Card>>();
         // push the General Store event to the stack
-        game_state.event_state_stack.push((
-            CardName::GeneralStore,
-            players.into_iter().collect::<Vec<String>>(),
-            general_store_cards.clone(),
-        ));
+        game_state.event_state_stack.push(EventState {
+            initiator: user_id.to_string(),
+            card_name: CardName::GeneralStore,
+            respondents: players.into_iter().collect::<Vec<String>>(),
+            data: EventStateData::Cards(general_store_cards.clone()),
+        });
+
         // create builder template for notifying players the card has been played
         let event_announcment = ServerEvent::builder(ServerEventCode::Action)
             .message(&format!("{} choosing a Card from General Store.", user_id))
@@ -475,41 +494,49 @@ static GENERAL_STORE_CARD_DATA: game_engine::types::CardData = game_engine::type
         // Remove card from the hand of the player
         game_state.add_cards_to_hand(user_id, cards);
         // create a list of player which doesnt include the player who played the card
-        if let Some((_, players, card_options)) = game_state.event_state_stack.last_mut() {
+        if let Some(event_state) = game_state.event_state_stack.last_mut() {
             // remove the player who picked the card
             // proceed to make the next player choose
-            players.remove(0);
+            event_state.respondents.remove(0);
             // remove the card that was picked by the player
-            card_options.retain(|card| card != &cards[0]);
+            if let EventStateData::Cards(card_options) = event_state.data.borrow_mut() {
+                card_options.retain(|card| card != &cards[0]);
+            } else {
+                eprintln!("[error] tried to access cards for general store, but event data did not contain a cards enum.");
+            }
+
             // end the event if all the players have taken their card
-            if players.is_empty() {
+            if event_state.respondents.is_empty() {
                 // pop the event from the stack
                 game_state.event_state_stack.pop();
                 // norify all users what card was chosen and complete the event
                 HashMap::new()
             } else {
-                // create builder template for notifying players of the next player choosing
-                let event_announcment = ServerEvent::builder(ServerEventCode::Action)
-                    .message(&format!(
-                        "{} choosing a Card from General Store.",
-                        players[0]
-                    ))
-                    .data(
-                        ServerEventData::builder()
-                            .card_options(&card_options)
-                            .build(),
-                    );
-                // return a map of the event announcement to each player in the game
-                game_state
-                    .player_order
-                    .iter()
-                    .filter(|player| *player != user_id)
-                    .map(|player| (player.clone(), event_announcment.build()))
-                    .collect::<HashMap<String, shared_types::ServerEvent>>()
+                if let EventStateData::Cards(card_options) = event_state.data.borrow_mut() {
+                    // create builder template for notifying players of the next player choosing
+                    let event_announcment = ServerEvent::builder(ServerEventCode::Action)
+                        .message(&format!(
+                            "{} choosing a Card from General Store.",
+                            event_state.respondents[0]
+                        ))
+                        .data(
+                            ServerEventData::builder()
+                                .card_options(&card_options)
+                                .build(),
+                        );
+                    // return a map of the event announcement to each player in the game
+                    game_state
+                        .player_order
+                        .iter()
+                        .filter(|player| *player != user_id)
+                        .map(|player| (player.clone(), event_announcment.build()))
+                        .collect::<HashMap<String, shared_types::ServerEvent>>()
+                } else {
+                    panic!("[error] tried to access cards for general store, but event data did not contain a cards enum.")
+                }
             }
         } else {
-            eprintln!("failed to find an event to play on.");
-            HashMap::new()
+            panic!("failed to find an event to play on.");
         }
     },
 };
