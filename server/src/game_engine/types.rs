@@ -5,11 +5,13 @@ pub type GameStates = HashMap<String, GameState>;
 
 #[derive(Clone)]
 pub enum EventStateData {
-    Cards(Vec<Card>),
-    Players(Vec<String>),
     PlayersAndCards {
         cards: Vec<Card>,
         players: Vec<String>,
+    },
+    PlayersWithIndex {
+        players: Vec<String>,
+        index: usize,
     },
     None,
 }
