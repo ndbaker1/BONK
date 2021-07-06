@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from 'react'
 import { useGameData } from '../providers/game.provider'
 import { GameRenderer } from '../utils/game-renderer'
 
+//// Renderer 
+// pass a canvas context and dimensions in for rendering
 const gameRenderer = new GameRenderer()
 
 /**
@@ -9,33 +11,50 @@ const gameRenderer = new GameRenderer()
  */
 export default function GameComponent(): JSX.Element {
   const { data } = useGameData()
-  const canvasref = useRef<HTMLCanvasElement>(null)
+
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const canvasContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const canvas = canvasref.current
+    const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
-    if (canvas && ctx) {
-      gameRenderer.canvasContext = ctx
-      gameRenderer.dimensions = {
-        height: canvas.clientHeight,
-        width: canvas.clientWidth,
+    // Attach the canvas to the Renderer
+    if (canvas && ctx) gameRenderer.canvasContext = ctx
+
+    // Eventlistener for Resizing the Canvas along with any page resizes
+    function updateBounds() {
+      if (canvasRef.current && canvasContainerRef.current) {
+        const padding = 50
+        // update the canvas dimensions
+        canvasRef.current.width = canvasContainerRef.current.clientWidth - 2 * padding
+        canvasRef.current.height = canvasContainerRef.current.clientHeight - 2 * padding
+        // update the renderer dimensions
+        gameRenderer.dimensions = {
+          height: canvasRef.current.clientHeight,
+          width: canvasRef.current.clientWidth,
+        }
       }
-      gameRenderer.render()
+      gameRenderer.render() // TEMP - should be in render loop
     }
+
+    // add the callback to the resize event listener and trigger initial update
+    window.addEventListener('resize', updateBounds)
+    updateBounds()
+    // return a cleanup callback for the component
+    return () => window.removeEventListener('resize', updateBounds)
   }, [])
 
   return (
-    <canvas
-      ref={canvasref} width={1000} height={750}
-      style={{
-        backgroundColor: '#fbf7f5',
-        position: 'absolute',
-        display: 'block',
-        margin: 'auto',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        right: 0,
-      }} />
+    <div ref={canvasContainerRef} style={flexContainerStyles}>
+      <canvas ref={canvasRef} />
+    </div>
   )
+}
+
+const flexContainerStyles = {
+  width: '100%',
+  height: '100%',
+  display: 'flex',
+  placeItems: 'center',
+  justifyContent: 'center'
 }
