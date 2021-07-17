@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import { useGameData } from '../providers/game.provider'
-import { GameRenderer } from '../utils/game-renderer'
+import { GameRenderer } from '../utils/game-renderer/game-renderer'
 
 //// Renderer 
 // pass a canvas context and dimensions in for rendering
@@ -29,7 +29,7 @@ export default function GameComponent(): JSX.Element {
         canvasRef.current.width = canvasContainerRef.current.clientWidth - 2 * padding
         canvasRef.current.height = canvasContainerRef.current.clientHeight - 2 * padding
         // update the renderer dimensions
-        gameRenderer.dimensions = {
+        gameRenderer.area = {
           height: canvasRef.current.clientHeight,
           width: canvasRef.current.clientWidth,
         }
