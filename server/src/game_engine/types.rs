@@ -1,7 +1,12 @@
-use crate::shared_types::{self, Card};
+use crate::{
+    data_types::SafeResource,
+    shared_types::{self, Card},
+};
 use std::collections::HashMap;
 
 pub type GameStates = HashMap<String, GameState>;
+
+pub type SafeGameStates = SafeResource<GameStates>;
 
 #[derive(Clone)]
 pub enum EventStateData {

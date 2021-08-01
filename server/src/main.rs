@@ -4,19 +4,24 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use warp::Filter;
 
+use crate::{
+    game_engine::types::SafeGameStates,
+    session_manager::types::{SafeClients, SafeSessions},
+};
+
 mod builders;
 mod data_types;
 mod game_engine;
 mod handler;
-mod session_types;
+mod session_manager;
 mod shared_types;
 mod ws;
 
 #[tokio::main]
 async fn main() {
-    let clients: data_types::SafeClients = Arc::new(RwLock::new(HashMap::new()));
-    let sessions: data_types::SafeSessions = Arc::new(RwLock::new(HashMap::new()));
-    let game_states: data_types::SafeGameStates = Arc::new(RwLock::new(HashMap::new()));
+    let clients: SafeClients = Arc::new(RwLock::new(HashMap::new()));
+    let sessions: SafeSessions = Arc::new(RwLock::new(HashMap::new()));
+    let game_states: SafeGameStates = Arc::new(RwLock::new(HashMap::new()));
 
     let health_route = warp::path!("health").and_then(handler::health_handler);
 
@@ -33,7 +38,7 @@ async fn main() {
         warp::cors()
             .allow_any_origin()
             .allow_headers(vec!["Content-Type"])
-            .allow_methods(vec!["GET", "POST", "DELETE"]),
+            .allow_methods(vec!["GET", "POST"]),
     );
 
     let port: u16 = env::var("PORT")

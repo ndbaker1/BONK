@@ -1,7 +1,9 @@
 use crate::{
-    data_types, session_types,
+    session_manager::{
+        types::{Client, SafeClients, SafeSessions, Session},
+        utilities::cleanup_session,
+    },
     shared_types::{self, Card, ServerEvent, ServerEventCode, ServerEventData},
-    ws::cleanup_session,
 };
 use nanoid::nanoid;
 use nanorand::{WyRand, RNG};
@@ -9,10 +11,11 @@ use serde_json::from_str;
 use std::collections::HashMap;
 use warp::ws::Message;
 
-pub mod cards;
-pub mod characters;
-pub mod deck;
-pub mod types;
+use super::{
+    cards::get_card_data,
+    deck,
+    types::{CardConditions, CardEffect, GameState, SafeGameStates},
+};
 
 impl shared_types::PlayerData {
     pub fn card_iter(
@@ -31,7 +34,7 @@ impl shared_types::PlayerData {
     }
 }
 
-impl types::GameState {
+impl GameState {
     pub fn to_game_data(&self) -> shared_types::GameData {
         shared_types::GameData {
             round: self.round,
@@ -60,9 +63,9 @@ impl types::GameState {
 pub async fn handle_event(
     client_id: &str,
     event: &str,
-    clients: &data_types::SafeClients,
-    sessions: &data_types::SafeSessions,
-    game_states: &data_types::SafeGameStates,
+    clients: &SafeClients,
+    sessions: &SafeSessions,
+    game_states: &SafeGameStates,
 ) {
     //======================================================
     // Deserialize into Session Event object
@@ -108,7 +111,7 @@ pub async fn handle_event(
             }
         }
         shared_types::ClientEventCode::CreateSession => {
-            let session = &mut session_types::Session {
+            let session = &mut Session {
                 client_statuses: HashMap::new(),
                 owner: client_id.to_string(),
                 id: get_rand_session_id(),
@@ -184,7 +187,7 @@ pub async fn handle_event(
             if let Some(session) = sessions.read().await.get(&session_id) {
                 match initialize_game_data(&session.get_client_ids()) {
                     Ok((player_order, player_data, deck)) => {
-                        let game_state = types::GameState {
+                        let game_state = GameState {
                             round: 1, // temp to avoid grace period
                             turn_index: 0,
                             player_order,
@@ -295,7 +298,7 @@ pub async fn handle_event(
                     Some(event_state) => {
                         if event_state.respondents.contains(&String::from(client_id)) {
                             // based on what event is currenty being processed, decide on the behavior
-                            let messages = (cards::get_card_data(&event_state.card_name).update)(
+                            let messages = (get_card_data(&event_state.card_name).update)(
                                 client_id,
                                 &cards,
                                 &Vec::new(),
@@ -315,11 +318,9 @@ pub async fn handle_event(
                         if game_state.is_player_turn(client_id) {
                             // verify player has cards
                             if game_state.player_owns_cards(client_id, &cards) {
-                                let card_data = cards::get_card_data(&cards[0].name);
-                                let (precheck, effect): (
-                                    &types::CardConditions,
-                                    &types::CardEffect,
-                                ) = (&card_data.requirements, &card_data.initiate);
+                                let card_data = get_card_data(&cards[0].name);
+                                let (precheck, effect): (&CardConditions, &CardEffect) =
+                                    (&card_data.requirements, &card_data.initiate);
 
                                 // default to an empty vector for cards whose effects do not concern targets
                                 let targets = match client_event.target_ids {
@@ -391,8 +392,8 @@ pub async fn handle_event(
 /// Uses a Read lock on clients
 async fn notify_session(
     game_update: &shared_types::ServerEvent,
-    session: &session_types::Session,
-    clients: &data_types::SafeClients,
+    session: &Session,
+    clients: &SafeClients,
 ) {
     for (client_id, _) in &session.client_statuses {
         if let Some(client) = clients.read().await.get(client_id) {
@@ -405,7 +406,7 @@ async fn notify_session(
 async fn notify_clients(
     game_update: &shared_types::ServerEvent,
     client_ids: &Vec<String>,
-    clients: &data_types::SafeClients,
+    clients: &SafeClients,
 ) {
     for client_id in client_ids {
         if let Some(client) = clients.read().await.get(client_id) {
@@ -415,7 +416,7 @@ async fn notify_clients(
 }
 
 /// Send an update to single clients
-fn notify_client(game_update: &shared_types::ServerEvent, client: &session_types::Client) {
+fn notify_client(game_update: &shared_types::ServerEvent, client: &Client) {
     // println!("[emit] {:?} to {:?}", game_update, client);
     let sender = match &client.sender {
         Some(s) => s,
@@ -434,9 +435,9 @@ fn notify_client(game_update: &shared_types::ServerEvent, client: &session_types
 /// Removes a client from the session that they currently exist under
 async fn remove_client_from_current_session(
     client_id: &str,
-    clients: &data_types::SafeClients,
-    sessions: &data_types::SafeSessions,
-    game_states: &data_types::SafeGameStates,
+    clients: &SafeClients,
+    sessions: &SafeSessions,
+    game_states: &SafeGameStates,
 ) {
     let session_id: String = match get_client_session_id(client_id, clients).await {
         Some(s_id) => s_id,
@@ -479,8 +480,8 @@ async fn remove_client_from_current_session(
 /// Uses a Read lock for Clients
 async fn insert_client_into_given_session(
     client_id: &str,
-    clients: &data_types::SafeClients,
-    session: &mut session_types::Session,
+    clients: &SafeClients,
+    session: &mut Session,
 ) {
     // add client to session
     session.insert_client(client_id, true);
@@ -505,11 +506,7 @@ async fn insert_client_into_given_session(
     .await;
 }
 
-fn set_new_session_owner(
-    session: &mut session_types::Session,
-    _clients: &data_types::SafeClients,
-    client_id: &String,
-) {
+fn set_new_session_owner(session: &mut Session, _clients: &SafeClients, client_id: &String) {
     session.owner = client_id.clone();
     // notify_all_clients(
     //   &ServerEvent {
@@ -614,13 +611,12 @@ fn get_rand_session_id() -> String {
 }
 
 /// pull the session id off of a client
-async fn get_client_session_id(
-    client_id: &str,
-    clients: &data_types::SafeClients,
-) -> Option<String> {
+async fn get_client_session_id(client_id: &str, clients: &SafeClients) -> Option<String> {
     if let Some(client) = &clients.read().await.get(client_id) {
         client.session_id.clone()
     } else {
         None
     }
 }
+
+///////////////////

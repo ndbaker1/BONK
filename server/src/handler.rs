@@ -1,4 +1,6 @@
-use crate::{data_types, ws};
+use crate::game_engine::types::SafeGameStates;
+use crate::session_manager::types::{SafeClients, SafeSessions};
+use crate::ws;
 use warp::Rejection;
 use warp::{http::StatusCode, Reply};
 
@@ -13,9 +15,9 @@ impl warp::reject::Reject for IDAlreadyTaken {}
 pub async fn ws_handler(
     ws: warp::ws::Ws,
     id: String,
-    clients: data_types::SafeClients,
-    sessions: data_types::SafeSessions,
-    game_states: data_types::SafeGameStates,
+    clients: SafeClients,
+    sessions: SafeSessions,
+    game_states: SafeGameStates,
 ) -> Result<impl Reply> {
     let client = clients.read().await.get(&id).cloned();
     match client {

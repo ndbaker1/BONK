@@ -1,35 +1,35 @@
-use crate::shared_types;
+use crate::shared_types::{Card, CardName, CardRank, CardSuit};
 use nanorand::{WyRand, RNG};
 
 /// Creates a starting deck of Cards for the game
-pub fn generate_deck() -> Vec<shared_types::Card> {
-    let mut deck: Vec<shared_types::Card> = Vec::with_capacity(80);
+pub fn generate_deck() -> Vec<Card> {
+    let mut deck: Vec<Card> = Vec::with_capacity(80);
     // copying same cards atm
     for _ in 0..20 {
-        deck.push(shared_types::Card {
-            name: shared_types::CardName::Bang,
-            suit: shared_types::CardSuit::Clubs,
-            rank: shared_types::CardRank::N1,
+        deck.push(Card {
+            name: CardName::Bang,
+            suit: CardSuit::Clubs,
+            rank: CardRank::N1,
         });
-        deck.push(shared_types::Card {
-            name: shared_types::CardName::Missed,
-            suit: shared_types::CardSuit::Hearts,
-            rank: shared_types::CardRank::N1,
+        deck.push(Card {
+            name: CardName::Missed,
+            suit: CardSuit::Hearts,
+            rank: CardRank::N1,
         });
-        deck.push(shared_types::Card {
-            name: shared_types::CardName::Indians,
-            suit: shared_types::CardSuit::Diamonds,
-            rank: shared_types::CardRank::N1,
+        deck.push(Card {
+            name: CardName::Indians,
+            suit: CardSuit::Diamonds,
+            rank: CardRank::N1,
         });
-        deck.push(shared_types::Card {
-            name: shared_types::CardName::GeneralStore,
-            suit: shared_types::CardSuit::Diamonds,
-            rank: shared_types::CardRank::N1,
+        deck.push(Card {
+            name: CardName::GeneralStore,
+            suit: CardSuit::Diamonds,
+            rank: CardRank::N1,
         });
-        deck.push(shared_types::Card {
-            name: shared_types::CardName::Duel,
-            suit: shared_types::CardSuit::Diamonds,
-            rank: shared_types::CardRank::N1,
+        deck.push(Card {
+            name: CardName::Duel,
+            suit: CardSuit::Diamonds,
+            rank: CardRank::N1,
         });
     }
     shuffle_deck(&mut deck);
@@ -37,6 +37,6 @@ pub fn generate_deck() -> Vec<shared_types::Card> {
 }
 
 /// Shuffles a vector of cards
-pub fn shuffle_deck(deck: &mut Vec<shared_types::Card>) {
+pub fn shuffle_deck(deck: &mut Vec<Card>) {
     WyRand::new().shuffle(deck);
 }
